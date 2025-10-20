@@ -11,6 +11,7 @@ import asyncio
 from pathlib import Path
 from typing import Optional, Dict, List
 import json
+from summaries import complete_summarizer
 
 app = FastAPI(title="TruNews - Complete News Scraper")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -19,7 +20,7 @@ RSS_FEEDS = {
     'BBC':              'https://feeds.bbci.co.uk/news/rss.xml', 
     'PBS':              'https://www.pbs.org/newshour/feeds/rss/headlines', 
     'NPR':              'https://feeds.npr.org/1001/rss.xml', 
-    'NY_Times':         'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml', 
+    'The Guardian':     'https://www.theguardian.com/world/rss', 
     'CNN':              'http://rss.cnn.com/rss/edition.rss', 
     'Washington_Post':  'https://feeds.washingtonpost.com/rss/national', 
     'National_Review':  'https://www.nationalreview.com/feed/', 
@@ -29,6 +30,7 @@ RSS_FEEDS = {
 
 templates = Jinja2Templates(directory="templates")
 scraper = CompleteScraper()
+summarizer = complete_summarizer.CompleteSummarizer()
 
 # WebSocket connections for live updates
 websocket_connections = set()
@@ -367,6 +369,47 @@ async def check_duplicates():
         "duplicate_count": len(actual_duplicates),
         "duplicates": actual_duplicates
     }
+
+
+@app.post("/summaries")
+async def make_summaries(
+    background_tasks: BackgroundTasks,
+    mode: str = Query("sync", pattern="^(sync|background)$")
+):
+    """
+    Build LEFT/RIGHT/CENTER summaries for ALL clusters.
+    - mode=sync: run now and return the rows
+    - mode=background: return immediately and build in background
+    """
+    if mode == "background":
+        background_tasks.add_task(summarizer.make_summaries)
+        return {
+            "status": "started",
+            "message": "Summaries are being generated in the background.",
+            "output_file": str(summarizer.storage_path)
+        }
+
+    rows = summarizer.make_summaries()
+    return {
+        "status": "ok",
+        "written": len(rows),
+        "output_file": str(summarizer.storage_path),
+        "rows": rows  # remove if you prefer a lighter response
+    }
+
+
+@app.get("/summaries")
+async def get_summaries(cluster_title: str | None = Query(None)):
+    """
+    Read summaries from the JSON file.
+    Optional: ?cluster_title=Some%20Title to fetch a single row.
+    """
+    rows = summarizer.get_summaries(cluster_title=cluster_title)
+    return {
+        "count": len(rows),
+        "rows": rows
+    }
+
 
 # Health check
 @app.get("/health")
