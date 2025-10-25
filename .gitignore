@@ -216,7 +216,7 @@ __marimo__/
 
 # runtime artifacts
 /apps/fastapi/data/scraped_articles/
-/apps/fastapi/cluster_output/
+/apps/fastapi/data/cluster_output/
 /apps/fastapi/data/summaries.json
 /fastapi/__pycache__/
 /fastapi/url_hashes.json
