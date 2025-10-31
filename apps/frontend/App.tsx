@@ -1,285 +1,196 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, memo } from 'react';
 import {
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  Image,
   StyleSheet,
   Text,
-  View,
-  Image,
   TouchableOpacity,
-  ScrollView,
-  Dimensions,
-  ActivityIndicator,
+  View,
 } from 'react-native';
-
-import {
-  getHealth,
-  type Health,
-  getSourceArticles,
-  getArticle,
-  type ArticleListItem,
-  type FullArticleResponse,
-} from './src/lib/api';
+import { getSummaries, type SummaryRow } from './src/lib/api/summaries';
 
 const { height, width } = Dimensions.get('window');
 
-export default function App() {
-  const [activeTab, setActiveTab] = useState('G');
+// ----- Small presentational card for a single story -----
+const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
+  const [activeTab, setActiveTab] = useState<'G' | 'R' | 'L' | 'C'>('G');
   const [showSources, setShowSources] = useState(false);
   const [showComments, setShowComments] = useState(false);
 
-  // ---- API health banner state ----
-  const [health, setHealth] = useState<Health | null>(null);
-  const [healthError, setHealthError] = useState<string | null>(null);
-  const [healthLoading, setHealthLoading] = useState<boolean>(true);
+  const tabs = [
+    { id: 'G' as const, label: 'General', color: '#6c757d', textColor: '#fff' },
+    { id: 'R' as const, label: 'Republican', color: '#dc3545', textColor: '#fff' },
+    { id: 'L' as const, label: 'Liberal', color: '#007bff', textColor: '#fff' },
+    { id: 'C' as const, label: 'Conservative', color: '#ffffff', textColor: '#000' },
+  ];
 
-  useEffect(() => {
-    let mounted = true;
-    getHealth()
-      .then((h) => {
-        if (mounted) setHealth(h);
-      })
-      .catch((e) => {
-        if (mounted) setHealthError(e?.status ? String(e.status) : 'unknown');
-      })
-      .finally(() => {
-        if (mounted) setHealthLoading(false);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  // ---- Live BBC list + article preview (from backend) ----
-  const [bbcLoading, setBbcLoading] = useState(false);
-  const [bbcError, setBbcError] = useState<string | null>(null);
-  const [bbcItems, setBbcItems] = useState<ArticleListItem[]>([]);
-  const [selected, setSelected] = useState<FullArticleResponse | null>(null);
-  const [loadingArticle, setLoadingArticle] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    setBbcLoading(true);
-    getSourceArticles('BBC', 15)
-      .then((resp) => {
-        if (mounted) setBbcItems(resp.articles ?? []);
-      })
-      .catch((e) => {
-        if (mounted) setBbcError(e?.status ? `HTTP ${e.status}` : 'Failed to load');
-      })
-      .finally(() => {
-        if (mounted) setBbcLoading(false);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const openArticle = async (item: ArticleListItem) => {
-    try {
-      setLoadingArticle(true);
-      const full = await getArticle('BBC', item.filename);
-      setSelected(full);
-    } catch (e: any) {
-      setBbcError(e?.status ? `HTTP ${e.status}` : 'Failed to open article');
-    } finally {
-      setLoadingArticle(false);
-    }
+  // pick text by tab; G uses CENTER by default, then LEFT, then RIGHT
+  const textByTab: Record<typeof activeTab, string> = {
+    G: row.center?.trim() || row.left?.trim() || row.right?.trim() || '—',
+    R: row.right?.trim() || '—',
+    L: row.left?.trim() || '—',
+    C: row.center?.trim() || '—',
   };
 
-  // ---- Sample static card you already had ----
-  const newsStory = {
-    title: 'Major Infrastructure Bill Passes Congress',
-    content:
-      'The United States Congress has passed a comprehensive infrastructure bill worth $1.2 trillion, marking one of the largest investments in American infrastructure in decades. The bill includes funding for roads, bridges, public transit, broadband internet, and clean energy initiatives. Supporters argue this will create millions of jobs and modernize aging infrastructure, while critics raise concerns about the cost and implementation timeline. The legislation received bipartisan support after months of negotiations.',
-    image:
-      'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=800&h=600&fit=crop',
-    time: '2 hours ago',
-    sources: ['CNN', 'Fox News', 'NPR', 'Reuters', 'Associated Press'],
-    swipeHint: 'swipe left for more at YouTube / 2 hours ago',
-  };
+  // Your summaries don’t include an image. Use a stable placeholder based on title.
+  const imageUri = `https://picsum.photos/seed/${encodeURIComponent(row.title)}/1200/800`;
 
+  // mock
   const comments = [
     { user: 'JohnDoe123', text: 'Finally some bipartisan action! This is what we need.', time: '1h ago' },
     { user: 'PoliticalWatcher', text: 'Concerned about the national debt implications.', time: '45m ago' },
     { user: 'NewsJunkie', text: 'Great to see investment in infrastructure!', time: '30m ago' },
   ];
-
-  const tabs = [
-    { id: 'G', label: 'General', color: '#6c757d', textColor: '#fff' },
-    { id: 'R', label: 'Republican', color: '#dc3545', textColor: '#fff' },
-    { id: 'L', label: 'Liberal', color: '#007bff', textColor: '#fff' },
-    { id: 'C', label: 'Conservative', color: '#ffffff', textColor: '#000' },
-  ];
+  const sources = ['BBC', 'CNN', 'NPR']; // replace later if you add sources to your JSON
 
   return (
-    <View style={styles.container}>
-      {/* ---- API health banner ---- */}
-      <View style={styles.apiBanner}>
-        <Text style={styles.apiBannerText}>
-          {healthLoading
-            ? 'Pinging API...'
-            : health
-            ? `API: ${health.status} – ${health.service}`
-            : `API error: ${healthError ?? 'unknown'}`}
-        </Text>
+    <View style={styles.page}>
+      {/* Image */}
+      <View style={styles.imageContainer}>
+        <Image source={{ uri: imageUri }} style={styles.newsImage} resizeMode="cover" />
       </View>
 
-      {/* Content */}
-      <ScrollView style={styles.contentContainer} showsVerticalScrollIndicator={false}>
-        {/* Hero image */}
-        <View style={styles.imageContainer}>
-          <Image source={{ uri: newsStory.image }} style={styles.newsImage} resizeMode="cover" />
-        </View>
-
-        {/* Small, subtle tabs */}
-        <View style={styles.tabsContainer}>
-          {tabs.map((tab) => (
-            <TouchableOpacity
-              key={tab.id}
+      {/* Tabs */}
+      <View style={styles.tabsContainer}>
+        {tabs.map((tab) => (
+          <TouchableOpacity
+            key={tab.id}
+            style={[
+              styles.tab,
+              { backgroundColor: tab.color },
+              activeTab === tab.id && styles.activeTab,
+              tab.id === 'C' && { borderWidth: 1, borderColor: '#ddd' },
+            ]}
+            onPress={() => setActiveTab(tab.id)}
+          >
+            <Text
               style={[
-                styles.tab,
-                { backgroundColor: tab.color },
-                activeTab === tab.id && styles.activeTab,
-                tab.id === 'C' && { borderWidth: 1, borderColor: '#ddd' },
+                styles.tabText,
+                { color: tab.textColor },
+                activeTab === tab.id && styles.activeTabText,
               ]}
-              onPress={() => setActiveTab(tab.id)}
             >
-              <Text
-                style={[
-                  styles.tabText,
-                  { color: tab.textColor },
-                  activeTab === tab.id && styles.activeTabText,
-                ]}
-              >
-                {tab.id}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+              {tab.id}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-        {/* Static demo card */}
-        <View style={styles.textContainer}>
-          <Text style={styles.newsTitle}>{newsStory.title}</Text>
+      {/* Title + Body */}
+      <View style={styles.textContainer}>
+        <Text style={styles.newsTitle}>{row.title}</Text>
 
-          <View style={styles.shortSection}>
-            <View style={styles.shortHeader}>
-              <View style={styles.shortLine} />
-              <Text style={styles.shortLabel}>short</Text>
-              <View style={styles.shortLine} />
-            </View>
-            <Text style={styles.newsContent}>{newsStory.content}</Text>
+        <View style={styles.shortSection}>
+          <View style={styles.shortHeader}>
+            <View style={styles.shortLine} />
+            <Text style={styles.shortLabel}>short</Text>
+            <View style={styles.shortLine} />
           </View>
+          <Text style={styles.newsContent}>{textByTab[activeTab]}</Text>
+        </View>
 
-          <Text style={styles.swipeHint}>{newsStory.swipeHint}</Text>
+        <Text style={styles.swipeHint}>swipe down for next story</Text>
 
-          <View style={styles.actionsContainer}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => setShowSources(!showSources)}
-            >
-              <Text style={styles.actionButtonText}>📰 Sources ({newsStory.sources.length})</Text>
-            </TouchableOpacity>
+        {/* Action buttons */}
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => setShowSources(!showSources)}>
+            <Text style={styles.actionButtonText}>📰 Sources ({sources.length})</Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => setShowComments(!showComments)}
-            >
-              <Text style={styles.actionButtonText}>💬 Comments ({comments.length})</Text>
+          <TouchableOpacity style={styles.actionButton} onPress={() => setShowComments(!showComments)}>
+            <Text style={styles.actionButtonText}>💬 Comments ({comments.length})</Text>
+          </TouchableOpacity>
+        </View>
+
+        {showSources && (
+          <View style={styles.sourcesContainer}>
+            <Text style={styles.sectionTitle}>News Sources</Text>
+            {sources.map((s) => (
+              <View key={s} style={styles.sourceItem}>
+                <View style={styles.sourceBullet} />
+                <Text style={styles.sourceText}>{s}</Text>
+              </View>
+            ))}
+            <Text style={styles.sourcesNote}>
+              This story has been synthesized from multiple viewpoints to provide balanced coverage.
+            </Text>
+          </View>
+        )}
+
+        {showComments && (
+          <View style={styles.commentsContainer}>
+            <Text style={styles.sectionTitle}>Comments ({comments.length})</Text>
+            {comments.map((c, i) => (
+              <View key={`${c.user}-${i}`} style={styles.commentItem}>
+                <View style={styles.commentHeader}>
+                  <Text style={styles.commentUser}>{c.user}</Text>
+                  <Text style={styles.commentTime}>{c.time}</Text>
+                </View>
+                <Text style={styles.commentText}>{c.text}</Text>
+              </View>
+            ))}
+            <TouchableOpacity style={styles.addCommentButton}>
+              <Text style={styles.addCommentText}>+ Add Comment</Text>
             </TouchableOpacity>
           </View>
-
-          {showSources && (
-            <View style={styles.sourcesContainer}>
-              <Text style={styles.sectionTitle}>News Sources</Text>
-              {newsStory.sources.map((source, index) => (
-                <View key={index} style={styles.sourceItem}>
-                  <View style={styles.sourceBullet} />
-                  <Text style={styles.sourceText}>{source}</Text>
-                </View>
-              ))}
-              <Text style={styles.sourcesNote}>
-                This story has been synthesized from multiple viewpoints to provide balanced coverage.
-              </Text>
-            </View>
-          )}
-
-          {showComments && (
-            <View style={styles.commentsContainer}>
-              <Text style={styles.sectionTitle}>Comments ({comments.length})</Text>
-              {comments.map((comment, index) => (
-                <View key={index} style={styles.commentItem}>
-                  <View style={styles.commentHeader}>
-                    <Text style={styles.commentUser}>{comment.user}</Text>
-                    <Text style={styles.commentTime}>{comment.time}</Text>
-                  </View>
-                  <Text style={styles.commentText}>{comment.text}</Text>
-                </View>
-              ))}
-              <TouchableOpacity style={styles.addCommentButton}>
-                <Text style={styles.addCommentText}>+ Add Comment</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        {/* ---- Live BBC section from API ---- */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
-          <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 6 }}>BBC (live from API)</Text>
-
-          {bbcLoading && <ActivityIndicator />}
-          {bbcError && <Text style={{ color: 'red', marginBottom: 8 }}>{bbcError}</Text>}
-
-          {bbcItems.map((it) => (
-            <TouchableOpacity
-              key={it.filename}
-              style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#eee' }}
-              onPress={() => openArticle(it)}
-            >
-              <Text style={{ fontSize: 15, fontWeight: '600', color: '#1d4ed8' }}>
-                {it.title || it.filename}
-              </Text>
-              <Text style={{ fontSize: 12, color: '#6b7280' }}>{it.published}</Text>
-            </TouchableOpacity>
-          ))}
-
-          {loadingArticle && <ActivityIndicator style={{ marginTop: 8 }} />}
-
-          {selected && (
-            <View style={{ marginTop: 12, backgroundColor: '#f9fafb', padding: 12, borderRadius: 8 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', marginBottom: 6 }}>
-                {selected.metadata?.Title ?? selected.filename}
-              </Text>
-              <Text style={{ fontSize: 13, color: '#374151', lineHeight: 18 }}>
-                {selected.content.slice(0, 1200)}
-                {selected.content.length > 1200 ? '…' : ''}
-              </Text>
-              <TouchableOpacity onPress={() => setSelected(null)} style={{ marginTop: 10 }}>
-                <Text style={{ color: '#2563eb', fontWeight: '600' }}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        {/* Bottom padding */}
-        <View style={styles.bottomPadding} />
-      </ScrollView>
+        )}
+      </View>
     </View>
+  );
+});
+
+// ----- App: fetch summaries and render a vertical paged list -----
+export default function App() {
+  const [rows, setRows] = useState<SummaryRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    getSummaries({ signal: ctrl.signal })
+      .then((res) => setRows(res.rows))
+      .catch((e: any) => setErr(e?.message ?? 'Failed to load summaries'))
+      .finally(() => setLoading(false));
+    return () => ctrl.abort();
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={[styles.page, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator />
+        <Text style={{ marginTop: 8, color: '#6b7280' }}>Loading…</Text>
+      </View>
+    );
+  }
+  if (err) {
+    return (
+      <View style={[styles.page, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: 'red' }}>{err}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <FlatList
+      data={rows}
+      keyExtractor={(r) => r.title}
+      renderItem={({ item }) => <StoryCard row={item} />}
+      pagingEnabled
+      decelerationRate="fast"
+      showsVerticalScrollIndicator={false}
+      snapToAlignment="start"
+      // make each item exactly one "screen" tall so paging snaps per story
+      getItemLayout={(_, index) => ({ length: height, offset: height * index, index })}
+    />
   );
 }
 
+// ----- Styles (mostly from your mock) -----
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  page: { height, backgroundColor: '#fff' },
 
-  // API banner
-  apiBanner: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#f2f2f2',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  apiBannerText: { fontSize: 12, color: '#555' },
-
-  contentContainer: { flex: 1 },
   imageContainer: { width: '100%', height: height * 0.5, backgroundColor: '#f0f0f0' },
   newsImage: { width: '100%', height: '100%' },
 
@@ -372,6 +283,5 @@ const styles = StyleSheet.create({
 
   addCommentButton: { backgroundColor: '#2ecc71', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10 },
   addCommentText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-
-  bottomPadding: { height: 10 },
 });
+
