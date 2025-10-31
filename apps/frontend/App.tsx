@@ -77,9 +77,9 @@ const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
 
   const tabs = [
     { id: 'G' as const, label: 'General',      color: '#6c757d', textColor: '#fff' },
-    { id: 'R' as const, label: 'Republican',   color: '#dc3545', textColor: '#fff' },
-    { id: 'L' as const, label: 'Liberal',      color: '#007bff', textColor: '#fff' },
-    { id: 'C' as const, label: 'Conservative', color: '#ffffff', textColor: '#000' },
+    { id: 'R' as const, label: 'Right',   color: '#dc3545', textColor: '#fff' },
+    { id: 'L' as const, label: 'Left',      color: '#007bff', textColor: '#fff' },
+    { id: 'C' as const, label: 'Center', color: '#ffffff', textColor: '#000' },
   ];
 
   const textByTab: Record<typeof activeTab, string> = {
