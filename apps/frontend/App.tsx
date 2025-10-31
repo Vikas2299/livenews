@@ -9,13 +9,14 @@ import {
   TouchableOpacity,
   View,
   ScrollView,
-  LayoutAnimation,
   Platform,
   UIManager,
   Modal, 
-  Pressable
+  Pressable,
+  useWindowDimensions,
 } from 'react-native';
 import { getSummaries, type SummaryRow } from './src/lib/api/summaries';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -28,24 +29,56 @@ const IMAGE_RATIO = SMALL_SCREEN ? 0.36 : 0.42;
 const SUMMARY_RATIO = SMALL_SCREEN ? 0.26 : 0.28; 
 
 // ----- Small presentational card for a single story -----
-// ----- Small presentational card for a single story -----
 const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
   const [activeTab, setActiveTab] = useState<'G' | 'R' | 'L' | 'C'>('G');
 
   // Which overlay is open?
   type Sheet = 'comments' | 'sources' | null;
   const [sheet, setSheet] = useState<Sheet>(null);
+  const openComments = () => setSheet(s => (s === 'comments' ? null : 'comments'));
+  const openSources  = () => setSheet(s => (s === 'sources'  ? null : 'sources'));
+  const closeSheet   = () => setSheet(null);
 
-  const openComments = () =>
-    setSheet((s) => (s === 'comments' ? null : 'comments'));
-  const openSources = () =>
-    setSheet((s) => (s === 'sources' ? null : 'sources'));
-  const closeSheet = () => setSheet(null);
+  // Responsive measurements
+  const { height: winH } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
+  // Measure heights of dynamic blocks
+  const [tabsH, setTabsH]       = useState(0);
+  const [headerH, setHeaderH]   = useState(0); // title + livenews header (no body)
+  const [actionsH, setActionsH] = useState(0);
+  const [contentH, setContentH] = useState(0); // natural text height
+
+  // Image height
+  const imageRatio = winH < 750 ? 0.34 : 0.40;
+  const imageH = Math.round(winH * imageRatio);
+
+  // Space budgeting so buttons stay ≥5px from bottom
+  const gutters = 24;
+  const BOTTOM_MIN = 5;
+  const SUMMARY_MAX_RATIO = winH < 750 ? 0.70 : 0.75;
+
+  const availableForSummary = Math.max(
+    0,
+    winH - (
+      imageH +
+      tabsH +
+      headerH +
+      actionsH +
+      BOTTOM_MIN +
+      gutters
+    )
+  );
+
+  const maxSummaryH = Math.min(winH * SUMMARY_MAX_RATIO, availableForSummary);
+
+  // Only scroll if the natural content is taller than allowed space
+  const shouldScroll = contentH > maxSummaryH + 1; // +1 avoids jitter on equality
 
   const tabs = [
-    { id: 'G' as const, label: 'General', color: '#6c757d', textColor: '#fff' },
-    { id: 'R' as const, label: 'Republican', color: '#dc3545', textColor: '#fff' },
-    { id: 'L' as const, label: 'Liberal', color: '#007bff', textColor: '#fff' },
+    { id: 'G' as const, label: 'General',      color: '#6c757d', textColor: '#fff' },
+    { id: 'R' as const, label: 'Republican',   color: '#dc3545', textColor: '#fff' },
+    { id: 'L' as const, label: 'Liberal',      color: '#007bff', textColor: '#fff' },
     { id: 'C' as const, label: 'Conservative', color: '#ffffff', textColor: '#000' },
   ];
 
@@ -60,122 +93,131 @@ const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
 
   // demo data
   const comments = [
-    { user: 'JohnDoe123', text: 'Finally some bipartisan action! This is what we need.', time: '1h ago' },
-    { user: 'PoliticalWatcher', text: 'Concerned about the national debt implications.', time: '45m ago' },
-    { user: 'NewsJunkie', text: 'Great to see investment in infrastructure!', time: '30m ago' },
+    { user: 'JohnDoe123',       text: 'Finally some bipartisan action! This is what we need.', time: '1h ago' },
+    { user: 'PoliticalWatcher', text: 'Concerned about the national debt implications.',       time: '45m ago' },
+    { user: 'NewsJunkie',       text: 'Great to see investment in infrastructure!',            time: '30m ago' },
   ];
   const sources = ['BBC', 'CNN', 'NPR'];
 
   return (
-    <View style={styles.page}>
-      {/* Image */}
-      <View style={styles.imageContainer}>
-        <Image source={{ uri: imageUri }} style={styles.newsImage} resizeMode="cover" />
-      </View>
+    <SafeAreaView style={styles.page} edges={['bottom']}>
+      <View style={styles.page}>
+        {/* Image */}
+        <View style={[styles.imageContainer, { height: imageH }]}>
+          <Image source={{ uri: imageUri }} style={styles.newsImage} resizeMode="cover" />
+        </View>
 
-      {/* Tabs */}
-      <View style={styles.tabsContainer}>
-        {tabs.map((tab) => (
-          <TouchableOpacity
-            key={tab.id}
-            style={[
-              styles.tab,
-              { backgroundColor: tab.color },
-              activeTab === tab.id && styles.activeTab,
-              tab.id === 'C' && { borderWidth: 1, borderColor: '#ddd' },
-            ]}
-            onPress={() => setActiveTab(tab.id)}
-          >
-            <Text
+        {/* Tabs */}
+        <View style={styles.tabsContainer} onLayout={(e) => setTabsH(e.nativeEvent.layout.height)}>
+          {tabs.map((tab) => (
+            <TouchableOpacity
+              key={tab.id}
               style={[
-                styles.tabText,
-                { color: tab.textColor },
-                activeTab === tab.id && styles.activeTabText,
+                styles.tab,
+                { backgroundColor: tab.color },
+                activeTab === tab.id && styles.activeTab,
+                tab.id === 'C' && { borderWidth: 1, borderColor: '#ddd' },
               ]}
+              onPress={() => setActiveTab(tab.id)}
             >
-              {tab.id}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Title + Summary + Buttons */}
-      <View style={styles.textContainer}>
-        <Text style={styles.newsTitle}>{row.title}</Text>
-
-        <View style={styles.shortSection}>
-          <View style={styles.shortHeader}>
-            <View style={styles.shortLine} />
-            <Text style={styles.shortLabel}>livenews</Text>
-            <View style={styles.shortLine} />
-          </View>
-          <Text style={styles.newsContent}>{textByTab[activeTab]}</Text>
-        </View>
-
-        {/* Action buttons */}
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity style={styles.actionButton} onPress={openSources}>
-            <Text style={styles.actionButtonText}>📰 Sources ({sources.length})</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionButton} onPress={openComments}>
-            <Text style={styles.actionButtonText}>💬 Comments ({comments.length})</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* ===== Bottom-sheet overlay (on top of the text) ===== */}
-      <Modal
-        visible={sheet !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={closeSheet}
-      >
-        <View style={styles.overlay}>
-          {/* Tap outside to close */}
-          <Pressable style={styles.backdrop} onPress={closeSheet} />
-
-          <View style={styles.sheet}>
-            <View style={styles.handleBar} />
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>
-                {sheet === 'comments' ? `Comments (${comments.length})` : 'News Sources'}
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: tab.textColor },
+                  activeTab === tab.id && styles.activeTabText,
+                ]}
+              >
+                {tab.id}
               </Text>
-              <TouchableOpacity onPress={closeSheet}>
-                <Text style={styles.sheetClose}>Close</Text>
-              </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-            {/* Content */}
-            {sheet === 'comments' ? (
-              <ScrollView style={{ maxHeight: height * 0.55 }}>
-                {comments.map((c, i) => (
-                  <View key={`${c.user}-${i}`} style={styles.commentItem}>
-                    <View style={styles.commentHeader}>
-                      <Text style={styles.commentUser}>{c.user}</Text>
-                      <Text style={styles.commentTime}>{c.time}</Text>
-                    </View>
-                    <Text style={styles.commentText}>{c.text}</Text>
-                  </View>
-                ))}
-              </ScrollView>
-            ) : (
-              <ScrollView style={{ maxHeight: height * 0.55 }}>
-                {sources.map((s) => (
-                  <View key={s} style={styles.sourceItem}>
-                    <View style={styles.sourceBullet} />
-                    <Text style={styles.sourceText}>{s}</Text>
-                  </View>
-                ))}
-                <Text style={styles.sourcesNote}>
-                  This story has been synthesized from multiple viewpoints to provide balanced coverage.
-                </Text>
-              </ScrollView>
-            )}
+        {/* Title + Summary + Buttons */}
+        <View style={[styles.textContainer, { paddingBottom: BOTTOM_MIN }]}>
+          {/* Title + "livenews" header (measured) */}
+          <View onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}>
+            <Text style={styles.newsTitle}>{row.title}</Text>
+            <View style={styles.shortHeader}>
+              <View style={styles.shortLine} />
+              <Text style={styles.shortLabel}>livenews</Text>
+              <View style={styles.shortLine} />
+            </View>
+          </View>
+
+          {/* Summary: only scroll when needed */}
+          <ScrollView
+            style={[
+              styles.summaryScroll,
+              shouldScroll && { maxHeight: maxSummaryH },
+            ]}
+            contentContainerStyle={{ paddingBottom: 2 }}
+            showsVerticalScrollIndicator={shouldScroll}
+            scrollEnabled={shouldScroll}
+            onContentSizeChange={(_, h) => setContentH(h)}
+          >
+            <Text style={styles.newsContent}>{textByTab[activeTab]}</Text>
+          </ScrollView>
+
+          {/* Action buttons (measured) */}
+          <View
+            style={styles.actionsContainer}
+            onLayout={(e) => setActionsH(e.nativeEvent.layout.height)}
+          >
+            <TouchableOpacity style={styles.actionButton} onPress={openSources}>
+              <Text style={styles.actionButtonText}>📰 Sources ({sources.length})</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionButton} onPress={openComments}>
+              <Text style={styles.actionButtonText}>💬 Comments ({comments.length})</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </Modal>
-    </View>
+
+        {/* Bottom-sheet for comments/sources */}
+        <Modal visible={sheet !== null} transparent animationType="slide" onRequestClose={closeSheet}>
+          <View style={styles.overlay}>
+            <Pressable style={styles.backdrop} onPress={closeSheet} />
+            <View style={styles.sheet}>
+              <View style={styles.handleBar} />
+              <View style={styles.sheetHeader}>
+                <Text style={styles.sheetTitle}>
+                  {sheet === 'comments' ? `Comments (${comments.length})` : 'News Sources'}
+                </Text>
+                <TouchableOpacity onPress={closeSheet}>
+                  <Text style={styles.sheetClose}>Close</Text>
+                </TouchableOpacity>
+              </View>
+
+              {sheet === 'comments' ? (
+                <ScrollView style={{ maxHeight: winH * 0.55 }}>
+                  {comments.map((c, i) => (
+                    <View key={`${c.user}-${i}`} style={styles.commentItem}>
+                      <View style={styles.commentHeader}>
+                        <Text style={styles.commentUser}>{c.user}</Text>
+                        <Text style={styles.commentTime}>{c.time}</Text>
+                      </View>
+                      <Text style={styles.commentText}>{c.text}</Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              ) : (
+                <ScrollView style={{ maxHeight: winH * 0.55 }}>
+                  {sources.map((s) => (
+                    <View key={s} style={styles.sourceItem}>
+                      <View style={styles.sourceBullet} />
+                      <Text style={styles.sourceText}>{s}</Text>
+                    </View>
+                  ))}
+                  <Text style={styles.sourcesNote}>
+                    This story has been synthesized from multiple viewpoints to provide balanced coverage.
+                  </Text>
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </Modal>
+      </View>
+    </ SafeAreaView>
   );
 });
 
@@ -228,6 +270,10 @@ export default function App() {
 
 // ----- Styles (mostly from your mock) -----
 const styles = StyleSheet.create({
+
+  summaryScroll: {
+    paddingHorizontal: 0,
+  },
 
   overlay: {
     flex: 1,
@@ -313,7 +359,7 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 12, fontWeight: '600' },
   activeTabText: { fontSize: 13, fontWeight: '700', color: '#007bff' },
 
-  textContainer: { paddingHorizontal: 16, paddingTop: 12, backgroundColor: '#fff' },
+  textContainer: { flex: 1, paddingHorizontal: 16, paddingTop: 12, backgroundColor: '#fff' },
   newsTitle: { fontSize: 20, fontWeight: 'bold', color: '#2c3e50', lineHeight: 26, marginBottom: 8 },
   shortSection: { marginBottom: 10 },
   shortHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
