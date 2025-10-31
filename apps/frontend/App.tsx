@@ -8,16 +8,39 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ScrollView,
+  LayoutAnimation,
+  Platform,
+  UIManager,
+  Modal, 
+  Pressable
 } from 'react-native';
 import { getSummaries, type SummaryRow } from './src/lib/api/summaries';
 
-const { height, width } = Dimensions.get('window');
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
+
+const { height, width } = Dimensions.get('window');
+const SMALL_SCREEN = height < 750;
+const IMAGE_RATIO = SMALL_SCREEN ? 0.36 : 0.42;
+const SUMMARY_RATIO = SMALL_SCREEN ? 0.26 : 0.28; 
+
+// ----- Small presentational card for a single story -----
 // ----- Small presentational card for a single story -----
 const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
   const [activeTab, setActiveTab] = useState<'G' | 'R' | 'L' | 'C'>('G');
-  const [showSources, setShowSources] = useState(false);
-  const [showComments, setShowComments] = useState(false);
+
+  // Which overlay is open?
+  type Sheet = 'comments' | 'sources' | null;
+  const [sheet, setSheet] = useState<Sheet>(null);
+
+  const openComments = () =>
+    setSheet((s) => (s === 'comments' ? null : 'comments'));
+  const openSources = () =>
+    setSheet((s) => (s === 'sources' ? null : 'sources'));
+  const closeSheet = () => setSheet(null);
 
   const tabs = [
     { id: 'G' as const, label: 'General', color: '#6c757d', textColor: '#fff' },
@@ -26,7 +49,6 @@ const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
     { id: 'C' as const, label: 'Conservative', color: '#ffffff', textColor: '#000' },
   ];
 
-  // pick text by tab; G uses CENTER by default, then LEFT, then RIGHT
   const textByTab: Record<typeof activeTab, string> = {
     G: row.center?.trim() || row.left?.trim() || row.right?.trim() || '—',
     R: row.right?.trim() || '—',
@@ -34,16 +56,15 @@ const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
     C: row.center?.trim() || '—',
   };
 
-  // Your summaries don’t include an image. Use a stable placeholder based on title.
   const imageUri = `https://picsum.photos/seed/${encodeURIComponent(row.title)}/1200/800`;
 
-  // mock
+  // demo data
   const comments = [
     { user: 'JohnDoe123', text: 'Finally some bipartisan action! This is what we need.', time: '1h ago' },
     { user: 'PoliticalWatcher', text: 'Concerned about the national debt implications.', time: '45m ago' },
     { user: 'NewsJunkie', text: 'Great to see investment in infrastructure!', time: '30m ago' },
   ];
-  const sources = ['BBC', 'CNN', 'NPR']; // replace later if you add sources to your JSON
+  const sources = ['BBC', 'CNN', 'NPR'];
 
   return (
     <View style={styles.page}>
@@ -78,68 +99,86 @@ const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
         ))}
       </View>
 
-      {/* Title + Body */}
+      {/* Title + Summary + Buttons */}
       <View style={styles.textContainer}>
         <Text style={styles.newsTitle}>{row.title}</Text>
 
         <View style={styles.shortSection}>
           <View style={styles.shortHeader}>
             <View style={styles.shortLine} />
-            <Text style={styles.shortLabel}>short</Text>
+            <Text style={styles.shortLabel}>livenews</Text>
             <View style={styles.shortLine} />
           </View>
           <Text style={styles.newsContent}>{textByTab[activeTab]}</Text>
         </View>
 
-        <Text style={styles.swipeHint}>swipe down for next story</Text>
-
         {/* Action buttons */}
         <View style={styles.actionsContainer}>
-          <TouchableOpacity style={styles.actionButton} onPress={() => setShowSources(!showSources)}>
+          <TouchableOpacity style={styles.actionButton} onPress={openSources}>
             <Text style={styles.actionButtonText}>📰 Sources ({sources.length})</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionButton} onPress={() => setShowComments(!showComments)}>
+          <TouchableOpacity style={styles.actionButton} onPress={openComments}>
             <Text style={styles.actionButtonText}>💬 Comments ({comments.length})</Text>
           </TouchableOpacity>
         </View>
-
-        {showSources && (
-          <View style={styles.sourcesContainer}>
-            <Text style={styles.sectionTitle}>News Sources</Text>
-            {sources.map((s) => (
-              <View key={s} style={styles.sourceItem}>
-                <View style={styles.sourceBullet} />
-                <Text style={styles.sourceText}>{s}</Text>
-              </View>
-            ))}
-            <Text style={styles.sourcesNote}>
-              This story has been synthesized from multiple viewpoints to provide balanced coverage.
-            </Text>
-          </View>
-        )}
-
-        {showComments && (
-          <View style={styles.commentsContainer}>
-            <Text style={styles.sectionTitle}>Comments ({comments.length})</Text>
-            {comments.map((c, i) => (
-              <View key={`${c.user}-${i}`} style={styles.commentItem}>
-                <View style={styles.commentHeader}>
-                  <Text style={styles.commentUser}>{c.user}</Text>
-                  <Text style={styles.commentTime}>{c.time}</Text>
-                </View>
-                <Text style={styles.commentText}>{c.text}</Text>
-              </View>
-            ))}
-            <TouchableOpacity style={styles.addCommentButton}>
-              <Text style={styles.addCommentText}>+ Add Comment</Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
+
+      {/* ===== Bottom-sheet overlay (on top of the text) ===== */}
+      <Modal
+        visible={sheet !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={closeSheet}
+      >
+        <View style={styles.overlay}>
+          {/* Tap outside to close */}
+          <Pressable style={styles.backdrop} onPress={closeSheet} />
+
+          <View style={styles.sheet}>
+            <View style={styles.handleBar} />
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>
+                {sheet === 'comments' ? `Comments (${comments.length})` : 'News Sources'}
+              </Text>
+              <TouchableOpacity onPress={closeSheet}>
+                <Text style={styles.sheetClose}>Close</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Content */}
+            {sheet === 'comments' ? (
+              <ScrollView style={{ maxHeight: height * 0.55 }}>
+                {comments.map((c, i) => (
+                  <View key={`${c.user}-${i}`} style={styles.commentItem}>
+                    <View style={styles.commentHeader}>
+                      <Text style={styles.commentUser}>{c.user}</Text>
+                      <Text style={styles.commentTime}>{c.time}</Text>
+                    </View>
+                    <Text style={styles.commentText}>{c.text}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            ) : (
+              <ScrollView style={{ maxHeight: height * 0.55 }}>
+                {sources.map((s) => (
+                  <View key={s} style={styles.sourceItem}>
+                    <View style={styles.sourceBullet} />
+                    <Text style={styles.sourceText}>{s}</Text>
+                  </View>
+                ))}
+                <Text style={styles.sourcesNote}>
+                  This story has been synthesized from multiple viewpoints to provide balanced coverage.
+                </Text>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 });
+
 
 // ----- App: fetch summaries and render a vertical paged list -----
 export default function App() {
@@ -189,9 +228,49 @@ export default function App() {
 
 // ----- Styles (mostly from your mock) -----
 const styles = StyleSheet.create({
+
+  overlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+  },
+  sheet: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 16,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: height * 0.6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 12,
+  },
+  handleBar: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#ddd',
+    marginBottom: 8,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sheetTitle: { fontSize: 16, fontWeight: '700', color: '#2c3e50' },
+  sheetClose: { color: '#2563eb', fontWeight: '600' },
+
   page: { height, backgroundColor: '#fff' },
 
-  imageContainer: { width: '100%', height: height * 0.5, backgroundColor: '#f0f0f0' },
+  imageContainer: { width: '100%', height: height * IMAGE_RATIO, backgroundColor: '#f0f0f0' },
   newsImage: { width: '100%', height: '100%' },
 
   tabsContainer: {
@@ -284,4 +363,3 @@ const styles = StyleSheet.create({
   addCommentButton: { backgroundColor: '#2ecc71', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10 },
   addCommentText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 });
-
