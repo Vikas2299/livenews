@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import NewsCard from '../components/NewsCard';
 
-const RepublicanScreen = () => {
+const RightScreen = () => {
   const newsData = [
     {
       id: 1,
@@ -11,7 +11,7 @@ const RepublicanScreen = () => {
       image: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=400&h=300&fit=crop",
       sources: ["Fox News", "The Daily Wire", "Breitbart"],
       comments: 18,
-      viewpoint: "republican"
+      viewpoint: "right"
     },
     {
       id: 2,
@@ -20,15 +20,15 @@ const RepublicanScreen = () => {
       image: "https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=400&h=300&fit=crop",
       sources: ["Fox News", "The Federalist", "Washington Examiner"],
       comments: 25,
-      viewpoint: "republican"
+      viewpoint: "right"
     }
   ];
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Republican View</Text>
-        <Text style={styles.headerSubtitle}>Conservative perspective on current events</Text>
+        <Text style={styles.headerTitle}>Right View</Text>
+        <Text style={styles.headerSubtitle}>Right's perspective on current events</Text>
       </View>
       
       {newsData.map((news) => (
@@ -61,4 +61,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default RepublicanScreen;
+export default RightScreen;
