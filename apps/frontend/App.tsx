@@ -1,137 +1,114 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, memo } from 'react';
 import {
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  Image,
   StyleSheet,
   Text,
-  View,
-  Image,
   TouchableOpacity,
+  View,
   ScrollView,
-  Dimensions,
-  ActivityIndicator,
+  Platform,
+  UIManager,
+  Modal, 
+  Pressable,
+  useWindowDimensions,
 } from 'react-native';
+import { getSummaries, type SummaryRow } from './src/lib/api/summaries';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 
-import {
-  getHealth,
-  type Health,
-  getSourceArticles,
-  getArticle,
-  type ArticleListItem,
-  type FullArticleResponse,
-} from './src/lib/api';
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 
 const { height, width } = Dimensions.get('window');
+const SMALL_SCREEN = height < 750;
+const IMAGE_RATIO = SMALL_SCREEN ? 0.36 : 0.42;
+const SUMMARY_RATIO = SMALL_SCREEN ? 0.26 : 0.28; 
 
-export default function App() {
-  const [activeTab, setActiveTab] = useState('G');
-  const [showSources, setShowSources] = useState(false);
-  const [showComments, setShowComments] = useState(false);
+// ----- Small presentational card for a single story -----
+const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
+  const [activeTab, setActiveTab] = useState<'G' | 'R' | 'L' | 'C'>('G');
 
-  // ---- API health banner state ----
-  const [health, setHealth] = useState<Health | null>(null);
-  const [healthError, setHealthError] = useState<string | null>(null);
-  const [healthLoading, setHealthLoading] = useState<boolean>(true);
+  // Which overlay is open?
+  type Sheet = 'comments' | 'sources' | null;
+  const [sheet, setSheet] = useState<Sheet>(null);
+  const openComments = () => setSheet(s => (s === 'comments' ? null : 'comments'));
+  const openSources  = () => setSheet(s => (s === 'sources'  ? null : 'sources'));
+  const closeSheet   = () => setSheet(null);
 
-  useEffect(() => {
-    let mounted = true;
-    getHealth()
-      .then((h) => {
-        if (mounted) setHealth(h);
-      })
-      .catch((e) => {
-        if (mounted) setHealthError(e?.status ? String(e.status) : 'unknown');
-      })
-      .finally(() => {
-        if (mounted) setHealthLoading(false);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  // Responsive measurements
+  const { height: winH } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
-  // ---- Live BBC list + article preview (from backend) ----
-  const [bbcLoading, setBbcLoading] = useState(false);
-  const [bbcError, setBbcError] = useState<string | null>(null);
-  const [bbcItems, setBbcItems] = useState<ArticleListItem[]>([]);
-  const [selected, setSelected] = useState<FullArticleResponse | null>(null);
-  const [loadingArticle, setLoadingArticle] = useState(false);
+  // Measure heights of dynamic blocks
+  const [tabsH, setTabsH]       = useState(0);
+  const [headerH, setHeaderH]   = useState(0); // title + livenews header (no body)
+  const [actionsH, setActionsH] = useState(0);
+  const [contentH, setContentH] = useState(0); // natural text height
 
-  useEffect(() => {
-    let mounted = true;
-    setBbcLoading(true);
-    getSourceArticles('BBC', 15)
-      .then((resp) => {
-        if (mounted) setBbcItems(resp.articles ?? []);
-      })
-      .catch((e) => {
-        if (mounted) setBbcError(e?.status ? `HTTP ${e.status}` : 'Failed to load');
-      })
-      .finally(() => {
-        if (mounted) setBbcLoading(false);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  // Image height
+  const imageRatio = winH < 750 ? 0.34 : 0.40;
+  const imageH = Math.round(winH * imageRatio);
 
-  const openArticle = async (item: ArticleListItem) => {
-    try {
-      setLoadingArticle(true);
-      const full = await getArticle('BBC', item.filename);
-      setSelected(full);
-    } catch (e: any) {
-      setBbcError(e?.status ? `HTTP ${e.status}` : 'Failed to open article');
-    } finally {
-      setLoadingArticle(false);
-    }
-  };
+  // Space budgeting so buttons stay ≥5px from bottom
+  const gutters = 24;
+  const BOTTOM_MIN = 5;
+  const SUMMARY_MAX_RATIO = winH < 750 ? 0.70 : 0.75;
 
-  // ---- Sample static card you already had ----
-  const newsStory = {
-    title: 'Major Infrastructure Bill Passes Congress',
-    content:
-      'The United States Congress has passed a comprehensive infrastructure bill worth $1.2 trillion, marking one of the largest investments in American infrastructure in decades. The bill includes funding for roads, bridges, public transit, broadband internet, and clean energy initiatives. Supporters argue this will create millions of jobs and modernize aging infrastructure, while critics raise concerns about the cost and implementation timeline. The legislation received bipartisan support after months of negotiations.',
-    image:
-      'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=800&h=600&fit=crop',
-    time: '2 hours ago',
-    sources: ['CNN', 'Fox News', 'NPR', 'Reuters', 'Associated Press'],
-    swipeHint: 'swipe left for more at YouTube / 2 hours ago',
-  };
+  const availableForSummary = Math.max(
+    0,
+    winH - (
+      imageH +
+      tabsH +
+      headerH +
+      actionsH +
+      BOTTOM_MIN +
+      gutters
+    )
+  );
 
-  const comments = [
-    { user: 'JohnDoe123', text: 'Finally some bipartisan action! This is what we need.', time: '1h ago' },
-    { user: 'PoliticalWatcher', text: 'Concerned about the national debt implications.', time: '45m ago' },
-    { user: 'NewsJunkie', text: 'Great to see investment in infrastructure!', time: '30m ago' },
-  ];
+  const maxSummaryH = Math.min(winH * SUMMARY_MAX_RATIO, availableForSummary);
+
+  // Only scroll if the natural content is taller than allowed space
+  const shouldScroll = contentH > maxSummaryH + 1; // +1 avoids jitter on equality
 
   const tabs = [
-    { id: 'G', label: 'General', color: '#6c757d', textColor: '#fff' },
-    { id: 'R', label: 'Republican', color: '#dc3545', textColor: '#fff' },
-    { id: 'L', label: 'Liberal', color: '#007bff', textColor: '#fff' },
-    { id: 'C', label: 'Conservative', color: '#ffffff', textColor: '#000' },
+    { id: 'G' as const, label: 'General',      color: '#6c757d', textColor: '#fff' },
+    { id: 'R' as const, label: 'Right',   color: '#dc3545', textColor: '#fff' },
+    { id: 'L' as const, label: 'Left',      color: '#007bff', textColor: '#fff' },
+    { id: 'C' as const, label: 'Center', color: '#ffffff', textColor: '#000' },
   ];
 
-  return (
-    <View style={styles.container}>
-      {/* ---- API health banner ---- */}
-      <View style={styles.apiBanner}>
-        <Text style={styles.apiBannerText}>
-          {healthLoading
-            ? 'Pinging API...'
-            : health
-            ? `API: ${health.status} – ${health.service}`
-            : `API error: ${healthError ?? 'unknown'}`}
-        </Text>
-      </View>
+  const textByTab: Record<typeof activeTab, string> = {
+    G: row.center?.trim() || row.left?.trim() || row.right?.trim() || '—',
+    R: row.right?.trim() || '—',
+    L: row.left?.trim() || '—',
+    C: row.center?.trim() || '—',
+  };
 
-      {/* Content */}
-      <ScrollView style={styles.contentContainer} showsVerticalScrollIndicator={false}>
-        {/* Hero image */}
-        <View style={styles.imageContainer}>
-          <Image source={{ uri: newsStory.image }} style={styles.newsImage} resizeMode="cover" />
+  const imageUri = `https://picsum.photos/seed/${encodeURIComponent(row.title)}/1200/800`;
+
+  // demo data
+  const comments = [
+    { user: 'JohnDoe123',       text: 'Finally some bipartisan action! This is what we need.', time: '1h ago' },
+    { user: 'PoliticalWatcher', text: 'Concerned about the national debt implications.',       time: '45m ago' },
+    { user: 'NewsJunkie',       text: 'Great to see investment in infrastructure!',            time: '30m ago' },
+  ];
+  const sources = ['BBC', 'CNN', 'NPR'];
+
+  return (
+    <SafeAreaView style={styles.page} edges={['bottom']}>
+      <View style={styles.page}>
+        {/* Image */}
+        <View style={[styles.imageContainer, { height: imageH }]}>
+          <Image source={{ uri: imageUri }} style={styles.newsImage} resizeMode="cover" />
         </View>
 
-        {/* Small, subtle tabs */}
-        <View style={styles.tabsContainer}>
+        {/* Tabs */}
+        <View style={styles.tabsContainer} onLayout={(e) => setTabsH(e.nativeEvent.layout.height)}>
           {tabs.map((tab) => (
             <TouchableOpacity
               key={tab.id}
@@ -156,131 +133,190 @@ export default function App() {
           ))}
         </View>
 
-        {/* Static demo card */}
-        <View style={styles.textContainer}>
-          <Text style={styles.newsTitle}>{newsStory.title}</Text>
-
-          <View style={styles.shortSection}>
+        {/* Title + Summary + Buttons */}
+        <View style={[styles.textContainer, { paddingBottom: BOTTOM_MIN }]}>
+          {/* Title + "livenews" header (measured) */}
+          <View onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}>
+            <Text style={styles.newsTitle}>{row.title}</Text>
             <View style={styles.shortHeader}>
               <View style={styles.shortLine} />
-              <Text style={styles.shortLabel}>short</Text>
+              <Text style={styles.shortLabel}>livenews</Text>
               <View style={styles.shortLine} />
             </View>
-            <Text style={styles.newsContent}>{newsStory.content}</Text>
           </View>
 
-          <Text style={styles.swipeHint}>{newsStory.swipeHint}</Text>
+          {/* Summary: only scroll when needed */}
+          <ScrollView
+            style={[
+              styles.summaryScroll,
+              shouldScroll && { maxHeight: maxSummaryH },
+            ]}
+            contentContainerStyle={{ paddingBottom: 2 }}
+            showsVerticalScrollIndicator={shouldScroll}
+            scrollEnabled={shouldScroll}
+            onContentSizeChange={(_, h) => setContentH(h)}
+          >
+            <Text style={styles.newsContent}>{textByTab[activeTab]}</Text>
+          </ScrollView>
 
-          <View style={styles.actionsContainer}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => setShowSources(!showSources)}
-            >
-              <Text style={styles.actionButtonText}>📰 Sources ({newsStory.sources.length})</Text>
+          {/* Action buttons (measured) */}
+          <View
+            style={styles.actionsContainer}
+            onLayout={(e) => setActionsH(e.nativeEvent.layout.height)}
+          >
+            <TouchableOpacity style={styles.actionButton} onPress={openSources}>
+              <Text style={styles.actionButtonText}>📰 Sources ({sources.length})</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => setShowComments(!showComments)}
-            >
+            <TouchableOpacity style={styles.actionButton} onPress={openComments}>
               <Text style={styles.actionButtonText}>💬 Comments ({comments.length})</Text>
             </TouchableOpacity>
           </View>
-
-          {showSources && (
-            <View style={styles.sourcesContainer}>
-              <Text style={styles.sectionTitle}>News Sources</Text>
-              {newsStory.sources.map((source, index) => (
-                <View key={index} style={styles.sourceItem}>
-                  <View style={styles.sourceBullet} />
-                  <Text style={styles.sourceText}>{source}</Text>
-                </View>
-              ))}
-              <Text style={styles.sourcesNote}>
-                This story has been synthesized from multiple viewpoints to provide balanced coverage.
-              </Text>
-            </View>
-          )}
-
-          {showComments && (
-            <View style={styles.commentsContainer}>
-              <Text style={styles.sectionTitle}>Comments ({comments.length})</Text>
-              {comments.map((comment, index) => (
-                <View key={index} style={styles.commentItem}>
-                  <View style={styles.commentHeader}>
-                    <Text style={styles.commentUser}>{comment.user}</Text>
-                    <Text style={styles.commentTime}>{comment.time}</Text>
-                  </View>
-                  <Text style={styles.commentText}>{comment.text}</Text>
-                </View>
-              ))}
-              <TouchableOpacity style={styles.addCommentButton}>
-                <Text style={styles.addCommentText}>+ Add Comment</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
 
-        {/* ---- Live BBC section from API ---- */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
-          <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 6 }}>BBC (live from API)</Text>
+        {/* Bottom-sheet for comments/sources */}
+        <Modal visible={sheet !== null} transparent animationType="slide" onRequestClose={closeSheet}>
+          <View style={styles.overlay}>
+            <Pressable style={styles.backdrop} onPress={closeSheet} />
+            <View style={styles.sheet}>
+              <View style={styles.handleBar} />
+              <View style={styles.sheetHeader}>
+                <Text style={styles.sheetTitle}>
+                  {sheet === 'comments' ? `Comments (${comments.length})` : 'News Sources'}
+                </Text>
+                <TouchableOpacity onPress={closeSheet}>
+                  <Text style={styles.sheetClose}>Close</Text>
+                </TouchableOpacity>
+              </View>
 
-          {bbcLoading && <ActivityIndicator />}
-          {bbcError && <Text style={{ color: 'red', marginBottom: 8 }}>{bbcError}</Text>}
-
-          {bbcItems.map((it) => (
-            <TouchableOpacity
-              key={it.filename}
-              style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#eee' }}
-              onPress={() => openArticle(it)}
-            >
-              <Text style={{ fontSize: 15, fontWeight: '600', color: '#1d4ed8' }}>
-                {it.title || it.filename}
-              </Text>
-              <Text style={{ fontSize: 12, color: '#6b7280' }}>{it.published}</Text>
-            </TouchableOpacity>
-          ))}
-
-          {loadingArticle && <ActivityIndicator style={{ marginTop: 8 }} />}
-
-          {selected && (
-            <View style={{ marginTop: 12, backgroundColor: '#f9fafb', padding: 12, borderRadius: 8 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', marginBottom: 6 }}>
-                {selected.metadata?.Title ?? selected.filename}
-              </Text>
-              <Text style={{ fontSize: 13, color: '#374151', lineHeight: 18 }}>
-                {selected.content.slice(0, 1200)}
-                {selected.content.length > 1200 ? '…' : ''}
-              </Text>
-              <TouchableOpacity onPress={() => setSelected(null)} style={{ marginTop: 10 }}>
-                <Text style={{ color: '#2563eb', fontWeight: '600' }}>Close</Text>
-              </TouchableOpacity>
+              {sheet === 'comments' ? (
+                <ScrollView style={{ maxHeight: winH * 0.55 }}>
+                  {comments.map((c, i) => (
+                    <View key={`${c.user}-${i}`} style={styles.commentItem}>
+                      <View style={styles.commentHeader}>
+                        <Text style={styles.commentUser}>{c.user}</Text>
+                        <Text style={styles.commentTime}>{c.time}</Text>
+                      </View>
+                      <Text style={styles.commentText}>{c.text}</Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              ) : (
+                <ScrollView style={{ maxHeight: winH * 0.55 }}>
+                  {sources.map((s) => (
+                    <View key={s} style={styles.sourceItem}>
+                      <View style={styles.sourceBullet} />
+                      <Text style={styles.sourceText}>{s}</Text>
+                    </View>
+                  ))}
+                  <Text style={styles.sourcesNote}>
+                    This story has been synthesized from multiple viewpoints to provide balanced coverage.
+                  </Text>
+                </ScrollView>
+              )}
             </View>
-          )}
-        </View>
+          </View>
+        </Modal>
+      </View>
+    </ SafeAreaView>
+  );
+});
 
-        {/* Bottom padding */}
-        <View style={styles.bottomPadding} />
-      </ScrollView>
-    </View>
+
+// ----- App: fetch summaries and render a vertical paged list -----
+export default function App() {
+  const [rows, setRows] = useState<SummaryRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    getSummaries({ signal: ctrl.signal })
+      .then((res) => setRows(res.rows))
+      .catch((e: any) => setErr(e?.message ?? 'Failed to load summaries'))
+      .finally(() => setLoading(false));
+    return () => ctrl.abort();
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={[styles.page, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator />
+        <Text style={{ marginTop: 8, color: '#6b7280' }}>Loading…</Text>
+      </View>
+    );
+  }
+  if (err) {
+    return (
+      <View style={[styles.page, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: 'red' }}>{err}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <FlatList
+      data={rows}
+      keyExtractor={(r) => r.title}
+      renderItem={({ item }) => <StoryCard row={item} />}
+      pagingEnabled
+      decelerationRate="fast"
+      showsVerticalScrollIndicator={false}
+      snapToAlignment="start"
+      // make each item exactly one "screen" tall so paging snaps per story
+      getItemLayout={(_, index) => ({ length: height, offset: height * index, index })}
+    />
   );
 }
 
+// ----- Styles (mostly from your mock) -----
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
 
-  // API banner
-  apiBanner: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#f2f2f2',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+  summaryScroll: {
+    paddingHorizontal: 0,
   },
-  apiBannerText: { fontSize: 12, color: '#555' },
 
-  contentContainer: { flex: 1 },
-  imageContainer: { width: '100%', height: height * 0.5, backgroundColor: '#f0f0f0' },
+  overlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+  },
+  sheet: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 16,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: height * 0.6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 12,
+  },
+  handleBar: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#ddd',
+    marginBottom: 8,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sheetTitle: { fontSize: 16, fontWeight: '700', color: '#2c3e50' },
+  sheetClose: { color: '#2563eb', fontWeight: '600' },
+
+  page: { height, backgroundColor: '#fff' },
+
+  imageContainer: { width: '100%', height: height * IMAGE_RATIO, backgroundColor: '#f0f0f0' },
   newsImage: { width: '100%', height: '100%' },
 
   tabsContainer: {
@@ -323,7 +359,7 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 12, fontWeight: '600' },
   activeTabText: { fontSize: 13, fontWeight: '700', color: '#007bff' },
 
-  textContainer: { paddingHorizontal: 16, paddingTop: 12, backgroundColor: '#fff' },
+  textContainer: { flex: 1, paddingHorizontal: 16, paddingTop: 12, backgroundColor: '#fff' },
   newsTitle: { fontSize: 20, fontWeight: 'bold', color: '#2c3e50', lineHeight: 26, marginBottom: 8 },
   shortSection: { marginBottom: 10 },
   shortHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
@@ -372,6 +408,4 @@ const styles = StyleSheet.create({
 
   addCommentButton: { backgroundColor: '#2ecc71', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10 },
   addCommentText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-
-  bottomPadding: { height: 10 },
 });
