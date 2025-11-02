@@ -126,6 +126,31 @@ Return ONLY JSON:
 """
 
 
+def make_general_agent_prompt(cluster_title: str, all_texts: List[str]) -> str:
+    body = join_articles(all_texts)
+    return f"""You are summarizing articles for the news cluster:
+"{cluster_title}"
+
+GOAL:
+- Produce a 100 words concise summary.
+- Include 3-5 concrete, verifiable facts (short, quotable snippets).
+- Be neutral and avoid speculation.
+- If multiple articles repeat the same fact, collapse duplicates.
+
+INPUT (all articles, separated by a delimiter):
+{body}
+
+Return ONLY JSON:
+{{
+  "cluster_title": "{cluster_title}",
+  "viewpoint": "GENERAL",
+  "summary": "...",
+  "key_facts": [{{"claim": "...", "short_quote": "..."}}]
+}}
+"""
+
+
+
 def build_view_summary_tasks(text_views_by_cluster: Dict[str, Dict[str, List[str]]],
                              agent,
                              view: str) -> List[Task]:
@@ -139,6 +164,31 @@ def build_view_summary_tasks(text_views_by_cluster: Dict[str, Dict[str, List[str
         tasks.append(Task(
             description=prompt,
             expected_output='JSON with fields: cluster_title, viewpoint, summary, key_facts[].',
+            agent=agent
+        ))
+    return tasks
+
+
+
+def build_general_summary_tasks(
+    text_views_by_cluster: Dict[str, Dict[str, List[str]]],
+    agent
+) -> List[Task]:
+    """
+    One Task per cluster using ALL available texts (LEFT+RIGHT+CENTER combined).
+    """
+    tasks: List[Task] = []
+    for cluster_title, per_view in text_views_by_cluster.items():
+        # Combine texts from all known views
+        all_texts: List[str] = []
+        for v in VIEW_ORDER:
+            all_texts.extend(per_view.get(v, []))
+        if not all_texts:
+            continue
+        prompt = make_general_agent_prompt(cluster_title, all_texts)
+        tasks.append(Task(
+            description=prompt,
+            expected_output='JSON with fields: cluster_title, viewpoint="GENERAL", summary, key_facts[].',
             agent=agent
         ))
     return tasks

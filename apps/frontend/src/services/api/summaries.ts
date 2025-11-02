@@ -5,6 +5,7 @@ export type RawSummaryRow = {
     LEFT?: string;
     RIGHT?: string;
     CENTER?: string;
+    GENERAL?: string;
 } & Record<string, unknown>
 
 export interface SummariesResponse {
@@ -17,6 +18,7 @@ export interface SummaryRow {
     left?: string;
     right?: string;
     center?: string;
+    general?: string;
     raw: RawSummaryRow;
 }
 
@@ -27,6 +29,7 @@ function normalize(r: RawSummaryRow): SummaryRow {
         left: r.LEFT,
         right: r.RIGHT, 
         center: r.CENTER,
+        general: r.GENERAL,
         raw: r,
     };
 }

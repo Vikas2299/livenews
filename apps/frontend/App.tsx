@@ -83,7 +83,7 @@ const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
   ];
 
   const textByTab: Record<typeof activeTab, string> = {
-    G: row.center?.trim() || row.left?.trim() || row.right?.trim() || '—',
+    G: row.general?.trim() || row.left?.trim() || row.right?.trim() || row.right?.trim() || '—' ,
     R: row.right?.trim() || '—',
     L: row.left?.trim() || '—',
     C: row.center?.trim() || '—',
