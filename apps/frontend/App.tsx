@@ -15,7 +15,7 @@ import {
   Pressable,
   useWindowDimensions,
 } from 'react-native';
-import { getSummaries, type SummaryRow } from './src/lib/api/summaries';
+import { getSummaries, type SummaryRow } from './src/services/api/summaries';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
