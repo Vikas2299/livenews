@@ -1,35 +1,26 @@
+// app.tsx
 import React, { useEffect, useState, memo } from 'react';
 import {
-  ActivityIndicator,
-  Dimensions,
-  FlatList,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  ScrollView,
-  Platform,
-  UIManager,
-  Modal, 
-  Pressable,
-  useWindowDimensions,
+  ActivityIndicator, Dimensions, FlatList, Image, StyleSheet, Text, TouchableOpacity,
+  View, ScrollView, Platform, UIManager, Modal, Pressable, useWindowDimensions,
 } from 'react-native';
 import { getSummaries, type SummaryRow } from './src/services/api/summaries';
+import { getClusterCovers } from './src/services/api/thumbnail'; // ✅ added
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-
-const { height, width } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 const SMALL_SCREEN = height < 750;
 const IMAGE_RATIO = SMALL_SCREEN ? 0.36 : 0.42;
-const SUMMARY_RATIO = SMALL_SCREEN ? 0.26 : 0.28; 
 
 // ----- Small presentational card for a single story -----
-const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
+const StoryCard = memo(function StoryCard({
+  row,
+  imageUri, // ✅ new prop
+}: { row: SummaryRow; imageUri: string }) {
   const [activeTab, setActiveTab] = useState<'G' | 'R' | 'L' | 'C'>('G');
 
   // Which overlay is open?
@@ -45,7 +36,7 @@ const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
 
   // Measure heights of dynamic blocks
   const [tabsH, setTabsH]       = useState(0);
-  const [headerH, setHeaderH]   = useState(0); // title + livenews header (no body)
+  const [headerH, setHeaderH]   = useState(0);
   const [actionsH, setActionsH] = useState(0);
   const [contentH, setContentH] = useState(0); // natural text height
 
@@ -60,38 +51,26 @@ const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
 
   const availableForSummary = Math.max(
     0,
-    winH - (
-      imageH +
-      tabsH +
-      headerH +
-      actionsH +
-      BOTTOM_MIN +
-      gutters
-    )
+    winH - (imageH + tabsH + headerH + actionsH + BOTTOM_MIN + gutters)
   );
-
   const maxSummaryH = Math.min(winH * SUMMARY_MAX_RATIO, availableForSummary);
-
-  // Only scroll if the natural content is taller than allowed space
   const shouldScroll = contentH > maxSummaryH + 1; // +1 avoids jitter on equality
 
   const tabs = [
-    { id: 'G' as const, label: 'General',      color: '#6c757d', textColor: '#fff' },
+    { id: 'G' as const, label: 'General', color: '#6c757d', textColor: '#fff' },
     { id: 'R' as const, label: 'Right',   color: '#dc3545', textColor: '#fff' },
-    { id: 'L' as const, label: 'Left',      color: '#007bff', textColor: '#fff' },
-    { id: 'C' as const, label: 'Center', color: '#ffffff', textColor: '#000' },
+    { id: 'L' as const, label: 'Left',    color: '#007bff', textColor: '#fff' },
+    { id: 'C' as const, label: 'Center',  color: '#ffffff', textColor: '#000' },
   ];
 
   const textByTab: Record<typeof activeTab, string> = {
-    G: row.general?.trim() || row.left?.trim() || row.right?.trim() || row.right?.trim() || '—' ,
+    G: row.general?.trim() || row.left?.trim() || row.right?.trim() || '—',
     R: row.right?.trim() || '—',
     L: row.left?.trim() || '—',
     C: row.center?.trim() || '—',
   };
 
-  const imageUri = `https://picsum.photos/seed/${encodeURIComponent(row.title)}/1200/800`;
-
-  // demo data
+  // ✅ restore demo data (unchanged behavior)
   const comments = [
     { user: 'JohnDoe123',       text: 'Finally some bipartisan action! This is what we need.', time: '1h ago' },
     { user: 'PoliticalWatcher', text: 'Concerned about the national debt implications.',       time: '45m ago' },
@@ -217,23 +196,36 @@ const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
           </View>
         </Modal>
       </View>
-    </ SafeAreaView>
+    </SafeAreaView>
   );
 });
 
-
-// ----- App: fetch summaries and render a vertical paged list -----
+// ----- App: fetch summaries + covers, render list -----
 export default function App() {
   const [rows, setRows] = useState<SummaryRow[]>([]);
+  const [coverMap, setCoverMap] = useState<Map<number, string>>(new Map()); // ✅
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     const ctrl = new AbortController();
-    getSummaries({ signal: ctrl.signal })
-      .then((res) => setRows(res.rows))
-      .catch((e: any) => setErr(e?.message ?? 'Failed to load summaries'))
-      .finally(() => setLoading(false));
+    (async () => {
+      try {
+        const [sumRes, covRes] = await Promise.all([
+          getSummaries({ signal: ctrl.signal }),
+          getClusterCovers({ signal: ctrl.signal }),  // ✅ fetch covers
+        ]);
+        setRows(sumRes.rows);
+
+        const m = new Map<number, string>();
+        (covRes.rows ?? []).forEach(r => m.set(r.clusterId, r.imageUrl));
+        setCoverMap(m);
+      } catch (e: any) {
+        setErr(e?.message ?? 'Failed to load data');
+      } finally {
+        setLoading(false);
+      }
+    })();
     return () => ctrl.abort();
   }, []);
 
@@ -253,36 +245,33 @@ export default function App() {
     );
   }
 
+  const GENERIC = (title: string) =>
+    `https://picsum.photos/seed/${encodeURIComponent(title)}/1200/800`; // ✅ fallback
+
   return (
     <FlatList
       data={rows}
       keyExtractor={(r) => r.title}
-      renderItem={({ item }) => <StoryCard row={item} />}
+      renderItem={({ item, index }) => {
+        // index is 0-based; cluster_id starts at 1
+        const img = coverMap.get(index + 1) || GENERIC(item.title);
+        return <StoryCard row={item} imageUri={img} />;
+      }}
       pagingEnabled
       decelerationRate="fast"
       showsVerticalScrollIndicator={false}
       snapToAlignment="start"
       // make each item exactly one "screen" tall so paging snaps per story
-      getItemLayout={(_, index) => ({ length: height, offset: height * index, index })}
+      getItemLayout={(_, i) => ({ length: height, offset: height * i, index: i })}
     />
   );
 }
 
 // ----- Styles (mostly from your mock) -----
 const styles = StyleSheet.create({
-
-  summaryScroll: {
-    paddingHorizontal: 0,
-  },
-
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-  },
+  summaryScroll: { paddingHorizontal: 0 },
+  overlay: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.25)' },
   sheet: {
     backgroundColor: '#fff',
     paddingHorizontal: 16,
@@ -297,20 +286,8 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 12,
   },
-  handleBar: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#ddd',
-    marginBottom: 8,
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
+  handleBar: { alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: '#ddd', marginBottom: 8 },
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   sheetTitle: { fontSize: 16, fontWeight: '700', color: '#2c3e50' },
   sheetClose: { color: '#2563eb', fontWeight: '600' },
 

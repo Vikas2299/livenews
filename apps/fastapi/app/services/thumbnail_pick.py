@@ -274,5 +274,21 @@ def main():
     (out_dir / "cluster_covers.json").write_text(json.dumps(index, indent=2), encoding="utf-8")
     print(f"Covers saved: {len(index)} | {out_dir/'cluster_covers.json'}")
 
+def generate_thumbnails(
+    articles_dir="apps/fastapi/data/scraped_articles",
+    clusters_json="apps/fastapi/data/cluster_output/clusters.json",
+    out_dir="apps/fastapi/data/out/thumbs"
+):
+    """Generate thumbnails programmatically."""
+    import sys
+    sys.argv = [
+        "thumbnail_pick.py",
+        "--articles-dir", articles_dir,
+        "--clusters-json", clusters_json,
+        "--out-dir", out_dir
+    ]
+    main()
+
+
 if __name__ == "__main__":
     main()

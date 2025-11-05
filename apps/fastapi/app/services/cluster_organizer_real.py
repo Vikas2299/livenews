@@ -6,7 +6,7 @@ from crewai import Task
 
 # Viewpoint source lists
 CENTER_LIST = ["BBC", "NPR", "PBS"]
-RIGHT_LIST  = ["Fox_News", "Breitbart"]
+RIGHT_LIST  = ["Fox_News", "Breitbart", "Dow Jones"]
 LEFT_LIST   = ["The Guardian", "CNN", "Washington_Post"]
 
 VIEW_ORDER = ["LEFT", "RIGHT", "CENTER"]

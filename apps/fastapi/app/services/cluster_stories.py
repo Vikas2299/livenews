@@ -300,5 +300,18 @@ def main():
     print(f"  - {outdir / 'clusters_summary.md'}")
     print("Done.")
 
+    # Automatically trigger thumbnail picking
+    try:
+        from app.services import thumbnail_pick
+        print("\nRunning thumbnail picker...")
+        thumbnail_pick.generate_thumbnails(
+            articles_dir=str(SCRAPED_DIR),
+            clusters_json=str(outdir / "clusters.json"),
+            out_dir=str(DATA_DIR / "out/thumbs")
+        )
+        print("Thumbnail generation completed.")
+    except Exception as e:
+        print("⚠️ Failed to generate thumbnails automatically:", e)
+
 if __name__ == "__main__":
     main()

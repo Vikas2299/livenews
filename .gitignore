@@ -218,6 +218,7 @@ __marimo__/
 /apps/fastapi/data/scraped_articles/
 /apps/fastapi/data/cluster_output/
 /apps/fastapi/data/summaries.json
+/apps/fastapi/data/out
 /fastapi/__pycache__/
 /fastapi/url_hashes.json
 /fastapi/scraped_index.json
