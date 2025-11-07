@@ -16,7 +16,7 @@ export class ApiError extends Error {
 function getDefaultBaseUrl(): string {
     if (Platform.OS === 'android') {
         // Android emulator uses 10.0.2.2 to access host machine
-        return "http://10.0.0.211:8000";
+        return "http://10.0.2.2:8000";
     }
     // iOS simulator and web can use localhost
     return "http://127.0.0.1:8000";
