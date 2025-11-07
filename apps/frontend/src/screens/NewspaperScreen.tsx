@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 12, fontWeight: '600' },
   activeTabText: { fontSize: 13, fontWeight: '700', color: '#007bff' },
   textContainer: { flex: 1, paddingHorizontal: 16, paddingTop: 12, backgroundColor: '#fff' },
-  newsTitle: { fontSize: 20, fontWeight: 'bold', color: '#2c3e50', lineHeight: 26, marginBottom: 8 },
+  newsTitle: { fontSize: 20, fontWeight: 'bold', color: '#2c3e50', lineHeight: 26, marginBottom: 8, textAlign: 'center' },
   shortSection: { marginBottom: 10 },
   shortHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   shortLine: { flex: 1, height: 1, backgroundColor: '#e0e0e0' },
