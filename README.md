@@ -34,7 +34,7 @@ This project consists of a FastAPI backend and a React Native frontend. Follow t
    ```bash
    # Windows
    python -m venv venv
-   venv\Scripts\activate
+   .\venv\Scripts\activate
 
    # macOS/Linux
    python3 -m venv venv
