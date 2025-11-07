@@ -12,6 +12,8 @@ import {
   Modal,
   Pressable,
   useWindowDimensions,
+  Linking,
+  Alert,
 } from 'react-native';
 import { getSummaries, type SummaryRow } from '../services/api/summaries';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -92,6 +94,37 @@ const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
     { user: 'NewsJunkie', text: 'Great to see investment in infrastructure!', time: '30m ago' },
   ];
   const sources = ['BBC', 'CNN', 'NPR'];
+
+  // Mapping of source names to their URLs
+  const sourceUrls: Record<string, string> = {
+    'BBC': 'https://www.bbc.com/news',
+    'CNN': 'https://www.cnn.com',
+    'NPR': 'https://www.npr.org',
+    'PBS': 'https://www.pbs.org/newshour',
+    'The Guardian': 'https://www.theguardian.com',
+    'Washington_Post': 'https://www.washingtonpost.com',
+    'National_Review': 'https://www.nationalreview.com',
+    'Breitbart': 'https://www.breitbart.com',
+    'Fox_News': 'https://www.foxnews.com',
+  };
+
+  const handleSourcePress = async (source: string) => {
+    const url = sourceUrls[source];
+    if (url) {
+      try {
+        const canOpen = await Linking.canOpenURL(url);
+        if (canOpen) {
+          await Linking.openURL(url);
+        } else {
+          Alert.alert('Error', `Cannot open ${source}`);
+        }
+      } catch (error) {
+        Alert.alert('Error', `Failed to open ${source}: ${error}`);
+      }
+    } else {
+      Alert.alert('Info', `No URL available for ${source}`);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.page} edges={['bottom']}>
@@ -197,10 +230,16 @@ const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
               ) : (
                 <ScrollView style={{ maxHeight: winH * 0.55 }}>
                   {sources.map((s) => (
-                    <View key={s} style={styles.sourceItem}>
+                    <TouchableOpacity
+                      key={s}
+                      style={styles.sourceItem}
+                      onPress={() => handleSourcePress(s)}
+                      activeOpacity={0.7}
+                    >
                       <View style={styles.sourceBullet} />
                       <Text style={styles.sourceText}>{s}</Text>
-                    </View>
+                      <Text style={styles.sourceLink}>→</Text>
+                    </TouchableOpacity>
                   ))}
                   <Text style={styles.sourcesNote}>
                     This story has been synthesized from multiple viewpoints to provide balanced coverage.
@@ -389,9 +428,10 @@ const styles = StyleSheet.create({
   actionButtonText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   sourcesContainer: { backgroundColor: '#f8f9fa', padding: 12, borderRadius: 12, marginTop: 3, marginBottom: 8 },
   sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#2c3e50', marginBottom: 10 },
-  sourceItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  sourceItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, paddingVertical: 8, paddingHorizontal: 4 },
   sourceBullet: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#3498db', marginRight: 12 },
-  sourceText: { fontSize: 15, color: '#34495e', fontWeight: '500' },
+  sourceText: { fontSize: 15, color: '#34495e', fontWeight: '500', flex: 1 },
+  sourceLink: { fontSize: 18, color: '#3498db', marginLeft: 8 },
   sourcesNote: { fontSize: 12, color: '#7f8c8d', fontStyle: 'italic', marginTop: 15, lineHeight: 18 },
   commentsContainer: { backgroundColor: '#f8f9fa', padding: 12, borderRadius: 12, marginTop: 3, marginBottom: 8 },
   commentItem: { backgroundColor: '#fff', padding: 10, borderRadius: 8, marginBottom: 8, borderLeftWidth: 3, borderLeftColor: '#3498db' },
