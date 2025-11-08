@@ -1,44 +1,42 @@
+// app.tsx
 import React, { useEffect, useState, memo } from 'react';
 import {
-  ActivityIndicator,
-  Dimensions,
-  FlatList,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  ScrollView,
-  Modal,
-  Pressable,
-  useWindowDimensions,
+  ActivityIndicator, Dimensions, FlatList, Image, StyleSheet, Text, TouchableOpacity,
+  View, ScrollView, Platform, UIManager, Modal, Pressable, useWindowDimensions,
 } from 'react-native';
 import { getSummaries, type SummaryRow } from '../services/api/summaries';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getBaseUrl } from '../services/api/client';
+import { getClusterCovers } from '../services/api/thumbnail';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 
-const { height, width } = Dimensions.get('window');
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const { height } = Dimensions.get('window');
 const SMALL_SCREEN = height < 750;
 const IMAGE_RATIO = SMALL_SCREEN ? 0.36 : 0.42;
 
 // ----- Small presentational card for a single story -----
-const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
+const StoryCard = memo(function StoryCard({
+  row,
+  imageUri, // ✅ new prop
+}: { row: SummaryRow; imageUri: string }) {
   const [activeTab, setActiveTab] = useState<'G' | 'R' | 'L' | 'C'>('G');
 
   // Which overlay is open?
   type Sheet = 'comments' | 'sources' | null;
   const [sheet, setSheet] = useState<Sheet>(null);
   const openComments = () => setSheet(s => (s === 'comments' ? null : 'comments'));
-  const openSources = () => setSheet(s => (s === 'sources' ? null : 'sources'));
-  const closeSheet = () => setSheet(null);
+  const openSources  = () => setSheet(s => (s === 'sources'  ? null : 'sources'));
+  const closeSheet   = () => setSheet(null);
 
   // Responsive measurements
   const { height: winH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
   // Measure heights of dynamic blocks
-  const [tabsH, setTabsH] = useState(0);
-  const [headerH, setHeaderH] = useState(0); // title + livenews header (no body)
+  const [tabsH, setTabsH]       = useState(0);
+  const [headerH, setHeaderH]   = useState(0);
   const [actionsH, setActionsH] = useState(0);
   const [contentH, setContentH] = useState(0); // natural text height
 
@@ -53,42 +51,30 @@ const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
 
   const availableForSummary = Math.max(
     0,
-    winH - (
-      imageH +
-      tabsH +
-      headerH +
-      actionsH +
-      BOTTOM_MIN +
-      gutters
-    )
+    winH - (imageH + tabsH + headerH + actionsH + BOTTOM_MIN + gutters)
   );
-
   const maxSummaryH = Math.min(winH * SUMMARY_MAX_RATIO, availableForSummary);
-
-  // Only scroll if the natural content is taller than allowed space
   const shouldScroll = contentH > maxSummaryH + 1; // +1 avoids jitter on equality
 
   const tabs = [
     { id: 'G' as const, label: 'General', color: '#6c757d', textColor: '#fff' },
-    { id: 'L' as const, label: 'Left', color: '#007bff', textColor: '#fff' },
-    { id: 'C' as const, label: 'Center', color: '#ffffff', textColor: '#000' },
-    { id: 'R' as const, label: 'Right', color: '#dc3545', textColor: '#fff' },
+    { id: 'R' as const, label: 'Right',   color: '#dc3545', textColor: '#fff' },
+    { id: 'L' as const, label: 'Left',    color: '#007bff', textColor: '#fff' },
+    { id: 'C' as const, label: 'Center',  color: '#ffffff', textColor: '#000' },
   ];
 
   const textByTab: Record<typeof activeTab, string> = {
-    G: row.general?.trim() || row.left?.trim() || row.right?.trim() || row.right?.trim() || '—',
+    G: row.general?.trim() || row.left?.trim() || row.right?.trim() || '—',
     R: row.right?.trim() || '—',
     L: row.left?.trim() || '—',
     C: row.center?.trim() || '—',
   };
 
-  const imageUri = `https://picsum.photos/seed/${encodeURIComponent(row.title)}/1200/800`;
-
-  // demo data
+  // ✅ restore demo data (unchanged behavior)
   const comments = [
-    { user: 'JohnDoe123', text: 'Finally some bipartisan action! This is what we need.', time: '1h ago' },
-    { user: 'PoliticalWatcher', text: 'Concerned about the national debt implications.', time: '45m ago' },
-    { user: 'NewsJunkie', text: 'Great to see investment in infrastructure!', time: '30m ago' },
+    { user: 'JohnDoe123',       text: 'Finally some bipartisan action! This is what we need.', time: '1h ago' },
+    { user: 'PoliticalWatcher', text: 'Concerned about the national debt implications.',       time: '45m ago' },
+    { user: 'NewsJunkie',       text: 'Great to see investment in infrastructure!',            time: '30m ago' },
   ];
   const sources = ['BBC', 'CNN', 'NPR'];
 
@@ -214,17 +200,32 @@ const StoryCard = memo(function StoryCard({ row }: { row: SummaryRow }) {
   );
 });
 
-export default function NewspaperScreen() {
+// ----- App: fetch summaries + covers, render list -----
+export default function NewspaperScreenOld() {
   const [rows, setRows] = useState<SummaryRow[]>([]);
+  const [coverMap, setCoverMap] = useState<Map<number, string>>(new Map()); // ✅
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     const ctrl = new AbortController();
-    getSummaries({ signal: ctrl.signal })
-      .then((res) => setRows(res.rows))
-      .catch((e: any) => setErr(e?.message ?? 'Failed to load summaries'))
-      .finally(() => setLoading(false));
+    (async () => {
+      try {
+        const [sumRes, covRes] = await Promise.all([
+          getSummaries({ signal: ctrl.signal }),
+          getClusterCovers({ signal: ctrl.signal }),  // ✅ fetch covers
+        ]);
+        setRows(sumRes.rows);
+
+        const m = new Map<number, string>();
+        (covRes.rows ?? []).forEach(r => m.set(r.clusterId, r.imageUrl));
+        setCoverMap(m);
+      } catch (e: any) {
+        setErr(e?.message ?? 'Failed to load data');
+      } finally {
+        setLoading(false);
+      }
+    })();
     return () => ctrl.abort();
   }, []);
 
@@ -238,51 +239,39 @@ export default function NewspaperScreen() {
   }
   if (err) {
     return (
-      <View style={[styles.page, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
-        <Text style={{ color: 'red', fontSize: 16, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' }}>
-          Network Error
-        </Text>
-        <Text style={{ color: '#666', fontSize: 14, marginBottom: 8, textAlign: 'center' }}>
-          {err}
-        </Text>
-        <Text style={{ color: '#999', fontSize: 12, marginTop: 10, textAlign: 'center' }}>
-          API URL: {getBaseUrl()}
-        </Text>
-        <Text style={{ color: '#999', fontSize: 12, marginTop: 5, textAlign: 'center' }}>
-          Make sure backend is running on port 8000
-        </Text>
+      <View style={[styles.page, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: 'red' }}>{err}</Text>
       </View>
     );
   }
+
+  const GENERIC = (title: string) =>
+    `https://picsum.photos/seed/${encodeURIComponent(title)}/1200/800`; // ✅ fallback
 
   return (
     <FlatList
       data={rows}
       keyExtractor={(r) => r.title}
-      renderItem={({ item }) => <StoryCard row={item} />}
+      renderItem={({ item, index }) => {
+        // index is 0-based; cluster_id starts at 1
+        const img = coverMap.get(index + 1) || GENERIC(item.title);
+        return <StoryCard row={item} imageUri={img} />;
+      }}
       pagingEnabled
       decelerationRate="fast"
       showsVerticalScrollIndicator={false}
       snapToAlignment="start"
       // make each item exactly one "screen" tall so paging snaps per story
-      getItemLayout={(_, index) => ({ length: height, offset: height * index, index })}
+      getItemLayout={(_, i) => ({ length: height, offset: height * i, index: i })}
     />
   );
 }
 
 // ----- Styles (mostly from your mock) -----
 const styles = StyleSheet.create({
-  summaryScroll: {
-    paddingHorizontal: 0,
-  },
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-  },
+  summaryScroll: { paddingHorizontal: 0 },
+  overlay: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.25)' },
   sheet: {
     backgroundColor: '#fff',
     paddingHorizontal: 16,
@@ -297,25 +286,16 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 12,
   },
-  handleBar: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#ddd',
-    marginBottom: 8,
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
+  handleBar: { alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: '#ddd', marginBottom: 8 },
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   sheetTitle: { fontSize: 16, fontWeight: '700', color: '#2c3e50' },
   sheetClose: { color: '#2563eb', fontWeight: '600' },
+
   page: { height, backgroundColor: '#fff' },
+
   imageContainer: { width: '100%', height: height * IMAGE_RATIO, backgroundColor: '#f0f0f0' },
   newsImage: { width: '100%', height: '100%' },
+
   tabsContainer: {
     flexDirection: 'row',
     backgroundColor: '#fff',
@@ -355,6 +335,7 @@ const styles = StyleSheet.create({
   },
   tabText: { fontSize: 12, fontWeight: '600' },
   activeTabText: { fontSize: 13, fontWeight: '700', color: '#007bff' },
+
   textContainer: { flex: 1, paddingHorizontal: 16, paddingTop: 12, backgroundColor: '#fff' },
   newsTitle: { fontSize: 20, fontWeight: 'bold', color: '#2c3e50', lineHeight: 26, marginBottom: 8 },
   shortSection: { marginBottom: 10 },
@@ -363,6 +344,7 @@ const styles = StyleSheet.create({
   shortLabel: { fontSize: 12, fontWeight: 'bold', color: '#95a5a6', marginHorizontal: 10, textTransform: 'lowercase' },
   newsContent: { fontSize: 14, lineHeight: 20, color: '#34495e', textAlign: 'left' },
   swipeHint: { fontSize: 12, color: '#95a5a6', fontStyle: 'italic', marginTop: 8, marginBottom: 12 },
+
   actionsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -386,19 +368,21 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   actionButtonText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+
   sourcesContainer: { backgroundColor: '#f8f9fa', padding: 12, borderRadius: 12, marginTop: 3, marginBottom: 8 },
   sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#2c3e50', marginBottom: 10 },
   sourceItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   sourceBullet: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#3498db', marginRight: 12 },
   sourceText: { fontSize: 15, color: '#34495e', fontWeight: '500' },
   sourcesNote: { fontSize: 12, color: '#7f8c8d', fontStyle: 'italic', marginTop: 15, lineHeight: 18 },
+
   commentsContainer: { backgroundColor: '#f8f9fa', padding: 12, borderRadius: 12, marginTop: 3, marginBottom: 8 },
   commentItem: { backgroundColor: '#fff', padding: 10, borderRadius: 8, marginBottom: 8, borderLeftWidth: 3, borderLeftColor: '#3498db' },
   commentHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
   commentUser: { fontSize: 14, fontWeight: 'bold', color: '#2c3e50' },
   commentTime: { fontSize: 12, color: '#95a5a6' },
   commentText: { fontSize: 14, color: '#34495e', lineHeight: 20 },
+
   addCommentButton: { backgroundColor: '#2ecc71', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10 },
   addCommentText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 });
-

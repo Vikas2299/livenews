@@ -1,68 +1,30 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Tab = 'videos' | 'newspaper';
-
 interface TopNavigationProps {
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
 }
 
 export default function TopNavigation({ activeTab, onTabChange }: TopNavigationProps) {
-  const insets = useSafeAreaInsets();
-
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <View style={styles.navBar}>
-        <TouchableOpacity
-          style={styles.tab}
-          onPress={() => onTabChange('videos')}
-          activeOpacity={0.7}
-        >
+        <TouchableOpacity style={styles.tab} onPress={() => onTabChange('videos')} activeOpacity={0.7}>
           <View style={styles.tabContent}>
-            <Text
-              style={[
-                styles.tabIcon,
-                activeTab === 'videos' ? styles.activeIcon : styles.inactiveIcon,
-              ]}
-            >
-              📹
-            </Text>
-            <Text
-              style={[
-                styles.tabText,
-                { marginLeft: 6 },
-                activeTab === 'videos' ? styles.activeTabText : styles.inactiveTabText,
-              ]}
-            >
+            <Text style={[styles.tabIcon, activeTab === 'videos' ? styles.activeIcon : styles.inactiveIcon]}>📹</Text>
+            <Text style={[styles.tabText, { marginLeft: 6 }, activeTab === 'videos' ? styles.activeTabText : styles.inactiveTabText]}>
               Videos
             </Text>
           </View>
           {activeTab === 'videos' && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.tab}
-          onPress={() => onTabChange('newspaper')}
-          activeOpacity={0.7}
-        >
+        <TouchableOpacity style={styles.tab} onPress={() => onTabChange('newspaper')} activeOpacity={0.7}>
           <View style={styles.tabContent}>
-            <Text
-              style={[
-                styles.tabIcon,
-                activeTab === 'newspaper' ? styles.activeIcon : styles.inactiveIcon,
-              ]}
-            >
-              📰
-            </Text>
-            <Text
-              style={[
-                styles.tabText,
-                { marginLeft: 6 },
-                activeTab === 'newspaper' ? styles.activeTabText : styles.inactiveTabText,
-              ]}
-            >
+            <Text style={[styles.tabIcon, activeTab === 'newspaper' ? styles.activeIcon : styles.inactiveIcon]}>📰</Text>
+            <Text style={[styles.tabText, { marginLeft: 6 }, activeTab === 'newspaper' ? styles.activeTabText : styles.inactiveTabText]}>
               Newspaper
             </Text>
           </View>
@@ -73,59 +35,56 @@ export default function TopNavigation({ activeTab, onTabChange }: TopNavigationP
   );
 }
 
+const ROW_H = 48;
+
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#000',
-    zIndex: 1000,
+    backgroundColor: 'transparent',
   },
   navBar: {
+    height: ROW_H, // fixed row height
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: '#000',
+    backgroundColor: 'transparent', // no second tint layer
   },
   tab: {
     flex: 1,
+    height: '100%',             // so underline is measured inside the bar
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
     position: 'relative',
   },
-  tabContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  tabContent: { flexDirection: 'row', alignItems: 'center' },
+
   tabIcon: {
     fontSize: 18,
+    textShadowColor: 'rgba(0,0,0,0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-  activeIcon: {
-    opacity: 1,
-  },
-  inactiveIcon: {
-    opacity: 0.6,
-  },
+  activeIcon: { opacity: 1 },
+  inactiveIcon: { opacity: 0.85 },
+
   tabText: {
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'System',
+    textShadowColor: 'rgba(0,0,0,0.45)',  // helps on bright photos
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-  activeTabText: {
-    color: '#fff',
-    fontWeight: '700',
-  },
-  inactiveTabText: {
-    color: '#8e8e93',
-  },
+  activeTabText: { color: '#fff', fontWeight: '700' },
+  inactiveTabText: { color: '#d0d0d0' },
+
   activeIndicator: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 6,                  // keep it inside the clipped bar
     height: 2,
+    width: '60%',
     backgroundColor: '#fff',
     borderRadius: 1,
-    width: '60%',
     alignSelf: 'center',
   },
 });
-

@@ -13,9 +13,16 @@ from pathlib import Path
 from typing import Optional, Dict, List
 import json
 from app.services import complete_summarizer
+import os
 
+# ✅ Create FastAPI app first, then register the router
 app = FastAPI(title="TruNews - Complete News Scraper")
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+FASTAPI_DIR = Path(__file__).resolve().parents[1]   # .../apps/fastapi
+DATA_DIR = Path(os.getenv("DATA_DIR", FASTAPI_DIR / "data"))
+COVERS_JSON = DATA_DIR / "out" / "thumbs" / "cluster_covers.json"
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,7 +47,7 @@ RSS_FEEDS = {
     'The Guardian':     'https://www.theguardian.com/world/rss', 
     'CNN':              'http://rss.cnn.com/rss/edition.rss', 
     'Washington_Post':  'https://feeds.washingtonpost.com/rss/national', 
-    'National_Review':  'https://www.nationalreview.com/feed/', 
+    'Dow Jones':        'https://feeds.content.dowjones.io/public/rss/RSSWorldNews', 
     'Breitbart':        'https://feeds.feedburner.com/breitbart', 
     'Fox_News':         'http://feeds.foxnews.com/foxnews/latest'
 }
@@ -426,6 +433,20 @@ async def get_summaries(cluster_title: str | None = Query(None)):
         "count": len(rows),
         "rows": rows
     }
+
+@app.get("/cluster-covers")
+def get_cluster_covers(request: Request):
+    covers = json.loads(COVERS_JSON.read_text())
+    rows = []
+    for item in covers:
+        rows.append({
+            "cluster_id": int(item["cluster_id"]),
+            "image_url": item["url"],   # <-- use publisher URL directly
+            "width": item.get("width"),
+            "height": item.get("height"),
+        })
+    return {"count": len(rows), "rows": rows}
+
 
 
 # Health check
