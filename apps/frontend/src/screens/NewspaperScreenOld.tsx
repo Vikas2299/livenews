@@ -114,12 +114,12 @@ const StoryCard = memo(function StoryCard({
 
         {/* Title + Summary + Buttons */}
         <View style={[styles.textContainer, { paddingBottom: BOTTOM_MIN }]}>
-          {/* Title + "livenews" header (measured) */}
+          {/* Title + "glassboxnews" header (measured) */}
           <View onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}>
             <Text style={styles.newsTitle}>{row.title}</Text>
             <View style={styles.shortHeader}>
               <View style={styles.shortLine} />
-              <Text style={styles.shortLabel}>livenews</Text>
+              <Text style={styles.shortLabel}>GlassBoxNews</Text>
               <View style={styles.shortLine} />
             </View>
           </View>
