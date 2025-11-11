@@ -302,6 +302,13 @@ def main():
 
     # Automatically trigger thumbnail picking
     try:
+        import sys
+        # Add parent directory to path so we can import app.services
+        # This is needed when running as a script (not as a module)
+        parent_dir = Path(__file__).resolve().parents[2]  # Go up to apps/fastapi
+        if str(parent_dir) not in sys.path:
+            sys.path.insert(0, str(parent_dir))
+        
         from app.services import thumbnail_pick
         print("\nRunning thumbnail picker...")
         thumbnail_pick.generate_thumbnails(
@@ -312,6 +319,8 @@ def main():
         print("Thumbnail generation completed.")
     except Exception as e:
         print("⚠️ Failed to generate thumbnails automatically:", e)
+        import traceback
+        traceback.print_exc()  # This will show you the full error
 
 if __name__ == "__main__":
     main()
