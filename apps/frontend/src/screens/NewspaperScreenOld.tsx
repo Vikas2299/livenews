@@ -364,10 +364,10 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     backgroundColor: '#3498db',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    minWidth: 120,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 22,
+    minWidth: 140,
     alignItems: 'center',
     shadowColor: '#3498db',
     shadowOffset: { width: 0, height: 2 },
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  actionButtonText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  actionButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
 
   sourcesContainer: { backgroundColor: '#f8f9fa', padding: 12, borderRadius: 12, marginTop: 3, marginBottom: 8 },
   sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#2c3e50', marginBottom: 10 },
