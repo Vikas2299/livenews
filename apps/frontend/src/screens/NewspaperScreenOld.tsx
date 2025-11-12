@@ -188,7 +188,7 @@ const StoryCard = memo(function StoryCard({
                     </View>
                   ))}
                   <Text style={styles.sourcesNote}>
-                    This story has been synthesized from multiple viewpoints to provide balanced coverage.
+                    This story has been synthesized from multiple sources to provide balanced coverage.
                   </Text>
                 </ScrollView>
               )}

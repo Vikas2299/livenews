@@ -6,7 +6,7 @@ import VideosScreen from './src/screens/VideosScreen';
 import NewspaperScreenOld from './src/screens/NewspaperScreenOld';
 
 type Tab = 'videos' | 'newspaper';
-const NAV_HEIGHT = 48;
+const NAV_HEIGHT = 29; // 3/5 of original 48
 
 function Root() {
   const [activeTab, setActiveTab] = useState<Tab>('newspaper');

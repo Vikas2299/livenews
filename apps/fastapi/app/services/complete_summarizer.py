@@ -173,10 +173,10 @@ class CompleteSummarizer:
                 if not title:
                     continue
                 if title not in collected:
-                    collected[title] = {"LEFT": "There are no left view points for this story yet.",
-                                        "RIGHT": "There are no right view points for this story yet.",
-                                        "CENTER": "There are no center view points for this story yet.",
-                                        "GENERAL": "There are no general view points for this article yet." }
+                    collected[title] = {"LEFT": "More left sources needed",
+                                        "RIGHT": "More right sources needed",
+                                        "CENTER": "More center sources needed",
+                                        "GENERAL": "More general sources needed" }
                 collected[title][key] = summary
         
         general_results = self._run_one_view(
@@ -193,10 +193,10 @@ class CompleteSummarizer:
             if not title:
                 continue
             if title not in collected:
-                collected[title] = {"LEFT": "There are no left view points for this story yet.",
-                                    "RIGHT": "There are no right view points for this story yet.",
-                                    "CENTER": "There are no center view points for this story yet.",
-                                    "GENERAL": "There are no general view points for this article yet." }
+                collected[title] = {"LEFT": "More left sources needed",
+                                    "RIGHT": "More right sources needed",
+                                    "CENTER": "More center sources needed",
+                                    "GENERAL": "More general sources needed" }
             collected[title]["GENERAL"] = summary
 
 

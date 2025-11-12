@@ -35,7 +35,7 @@ export default function TopNavigation({ activeTab, onTabChange }: TopNavigationP
   );
 }
 
-const ROW_H = 48;
+const ROW_H = 29; // 3/5 of original 48
 
 const styles = StyleSheet.create({
   container: {
@@ -53,7 +53,8 @@ const styles = StyleSheet.create({
     flex: 1,
     height: '100%',             // so underline is measured inside the bar
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 2,
     position: 'relative',
   },
   tabContent: { flexDirection: 'row', alignItems: 'center' },
@@ -80,11 +81,11 @@ const styles = StyleSheet.create({
 
   activeIndicator: {
     position: 'absolute',
-    bottom: 6,                  // keep it inside the clipped bar
+    bottom: 0,                  // at the very bottom of the navbar, touching the image
     height: 2,
     width: '60%',
     backgroundColor: '#fff',
-    borderRadius: 1,
+    borderRadius: 0,
     alignSelf: 'center',
   },
 });
