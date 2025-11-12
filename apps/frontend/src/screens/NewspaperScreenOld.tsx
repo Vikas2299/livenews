@@ -44,14 +44,14 @@ const StoryCard = memo(function StoryCard({
   const imageRatio = winH < 750 ? 0.34 : 0.40;
   const imageH = Math.round(winH * imageRatio);
 
-  // Space budgeting so buttons stay ≥5px from bottom
-  const gutters = 24;
-  const BOTTOM_MIN = 5;
-  const SUMMARY_MAX_RATIO = winH < 750 ? 0.70 : 0.75;
+  // Space budgeting - actions are absolutely positioned, so don't subtract their height
+  const gutters = 2;
+  const BOTTOM_MIN = 0;
+  const SUMMARY_MAX_RATIO = winH < 750 ? 0.82 : 0.85;
 
   const availableForSummary = Math.max(
     0,
-    winH - (imageH + tabsH + headerH + actionsH + BOTTOM_MIN + gutters)
+    winH - (imageH + tabsH + headerH + BOTTOM_MIN + gutters)
   );
   const maxSummaryH = Math.min(winH * SUMMARY_MAX_RATIO, availableForSummary);
   const shouldScroll = contentH > maxSummaryH + 1; // +1 avoids jitter on equality
@@ -79,49 +79,49 @@ const StoryCard = memo(function StoryCard({
   const sources = ['BBC', 'CNN', 'NPR'];
 
   return (
-    <SafeAreaView style={styles.page} edges={['bottom']}>
+    <SafeAreaView style={styles.page} edges={[]}>
       <View style={styles.page}>
         {/* Image */}
         <View style={[styles.imageContainer, { height: imageH }]}>
           <Image source={{ uri: imageUri }} style={styles.newsImage} resizeMode="cover" />
         </View>
 
-        {/* Tabs */}
-        <View style={styles.tabsContainer} onLayout={(e) => setTabsH(e.nativeEvent.layout.height)}>
-          {tabs.map((tab) => (
-            <TouchableOpacity
-              key={tab.id}
-              style={[
-                styles.tab,
-                { backgroundColor: tab.color },
-                activeTab === tab.id && styles.activeTab,
-                tab.id === 'C' && { borderWidth: 1, borderColor: '#ddd' },
-              ]}
-              onPress={() => setActiveTab(tab.id)}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  { color: tab.textColor },
-                  activeTab === tab.id && styles.activeTabText,
-                ]}
-              >
-                {tab.id}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
         {/* Title + Summary + Buttons */}
         <View style={[styles.textContainer, { paddingBottom: BOTTOM_MIN }]}>
-          {/* Title + "glassboxnews" header (measured) */}
-          <View onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}>
+          {/* Title (measured) */}
+          <View onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)} style={{ width: '100%' }}>
             <Text style={styles.newsTitle}>{row.title}</Text>
             <View style={styles.shortHeader}>
               <View style={styles.shortLine} />
-              <Text style={styles.shortLabel}>GlassBoxNews</Text>
+              <Text style={styles.shortLabel}>GlassBox News</Text>
               <View style={styles.shortLine} />
             </View>
+          </View>
+
+          {/* Tabs - moved below title */}
+          <View style={styles.tabsContainer} onLayout={(e) => setTabsH(e.nativeEvent.layout.height)}>
+            {tabs.map((tab) => (
+              <TouchableOpacity
+                key={tab.id}
+                style={[
+                  styles.tab,
+                  { backgroundColor: tab.color },
+                  activeTab === tab.id && styles.activeTab,
+                  tab.id === 'C' && { borderWidth: 1, borderColor: '#ddd' },
+                ]}
+                onPress={() => setActiveTab(tab.id)}
+              >
+                <Text
+                  style={[
+                    styles.tabText,
+                    { color: tab.textColor },
+                    activeTab === tab.id && styles.activeTabText,
+                  ]}
+                >
+                  {tab.id}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
           {/* Summary: only scroll when needed */}
@@ -130,7 +130,7 @@ const StoryCard = memo(function StoryCard({
               styles.summaryScroll,
               shouldScroll && { maxHeight: maxSummaryH },
             ]}
-            contentContainerStyle={{ paddingBottom: 2 }}
+            contentContainerStyle={{ paddingBottom: 50 }}
             showsVerticalScrollIndicator={shouldScroll}
             scrollEnabled={shouldScroll}
             onContentSizeChange={(_, h) => setContentH(h)}
@@ -269,7 +269,7 @@ export default function NewspaperScreenOld() {
 
 // ----- Styles (mostly from your mock) -----
 const styles = StyleSheet.create({
-  summaryScroll: { paddingHorizontal: 0 },
+  summaryScroll: { paddingHorizontal: 0, flex: 1 },
   overlay: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.25)' },
   sheet: {
@@ -299,60 +299,68 @@ const styles = StyleSheet.create({
   tabsContainer: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingHorizontal: 8,
+    paddingVertical: 1,
+    paddingBottom: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   tab: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-    minWidth: 32,
-    height: 28,
+    width: 42,
+    height: 42,
+    paddingHorizontal: 7,
+    paddingVertical: 8,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 4,
+    marginHorizontal: 7,
     borderWidth: 0.5,
     borderColor: '#ddd',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.08,
+    shadowRadius: 1.5,
+    elevation: 2,
   },
   activeTab: {
     backgroundColor: '#fff',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#007bff',
     shadowColor: '#007bff',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  tabText: { fontSize: 12, fontWeight: '600' },
-  activeTabText: { fontSize: 13, fontWeight: '700', color: '#007bff' },
+  tabText: { fontSize: 17, fontWeight: '600' },
+  activeTabText: { fontSize: 17, fontWeight: '700', color: '#007bff' },
 
-  textContainer: { flex: 1, paddingHorizontal: 16, paddingTop: 12, backgroundColor: '#fff' },
-  newsTitle: { fontSize: 20, fontWeight: 'bold', color: '#2c3e50', lineHeight: 26, marginBottom: 8 },
+  textContainer: { flex: 1, paddingHorizontal: 16, paddingTop: 1, backgroundColor: '#fff', alignItems: 'center' },
+  newsTitle: { fontSize: 19, fontWeight: 'bold', color: '#2c3e50', lineHeight: 25, marginBottom: 0, textAlign: 'center', flexShrink: 1 },
   shortSection: { marginBottom: 10 },
-  shortHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  shortHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 1, marginTop: 0 },
   shortLine: { flex: 1, height: 1, backgroundColor: '#e0e0e0' },
   shortLabel: { fontSize: 12, fontWeight: 'bold', color: '#95a5a6', marginHorizontal: 10, textTransform: 'lowercase' },
-  newsContent: { fontSize: 14, lineHeight: 20, color: '#34495e', textAlign: 'left' },
+  newsContent: { fontSize: 14, lineHeight: 20, color: '#34495e', textAlign: 'center' },
   swipeHint: { fontSize: 12, color: '#95a5a6', fontStyle: 'italic', marginTop: 8, marginBottom: 12 },
 
   actionsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginVertical: 8,
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
+    marginVertical: 0,
+    marginTop: 0,
+    marginBottom: 0,
+    paddingVertical: 6,
+    paddingBottom: 4,
+    borderTopWidth: 0,
+    borderBottomWidth: 0,
     borderColor: '#ecf0f1',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
   },
   actionButton: {
     backgroundColor: '#3498db',
