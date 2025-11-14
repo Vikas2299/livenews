@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "LiveNews",
+    "slug": "livenews-fe",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.livenews"
+    },
+    "android": {
+      "package": "com.livenews",
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+
+services:
+  db:
+    image: pgvector/pgvector:pg16         # Postgres + pgvector preinstalled
+    container_name: livenews_db
+    environment:
+      POSTGRES_DB: livenews
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5433:5432"                       # host:container (we use 5433 on host)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d livenews || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+volumes:
+  db-data:

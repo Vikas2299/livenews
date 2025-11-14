@@ -1,0 +1,79 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.1.2 Chrome/138.0.7204.243 Electron/37.4.0 Safari/537.36" version="28.1.2">
+  <diagram id="QSekou_Sa0EfsS9Vvyk2" name="Design">
+    <mxGraphModel dx="1025" dy="593" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="hBBUqt62hopdGDWZqtHY-5" value="" style="rounded=1;whiteSpace=wrap;html=1;absoluteArcSize=1;fillColor=none;dashed=1;verticalAlign=bottom;fontSize=10;fontColor=#6600CC;" vertex="1" parent="1">
+          <mxGeometry x="230" y="190" width="140" height="330" as="geometry" />
+        </mxCell>
+        <mxCell id="hBBUqt62hopdGDWZqtHY-1" value="Sources of Truth" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="120" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="hBBUqt62hopdGDWZqtHY-2" value="Opinion Features" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="240" y="270" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="hBBUqt62hopdGDWZqtHY-3" value="Belief Features" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="240" y="340" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="hBBUqt62hopdGDWZqtHY-4" value="Sources of News" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="400" y="120" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="hBBUqt62hopdGDWZqtHY-6" value="" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="hBBUqt62hopdGDWZqtHY-1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="530" y="430" as="sourcePoint" />
+            <mxPoint x="270" y="190" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hBBUqt62hopdGDWZqtHY-7" value="" style="endArrow=classic;html=1;rounded=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="hBBUqt62hopdGDWZqtHY-4" target="hBBUqt62hopdGDWZqtHY-5">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="530" y="430" as="sourcePoint" />
+            <mxPoint x="580" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hBBUqt62hopdGDWZqtHY-8" value="Truth Validator" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="240" y="200" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="hBBUqt62hopdGDWZqtHY-9" value="Political Viewpoint" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="440" y="270" width="120" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="hBBUqt62hopdGDWZqtHY-10" value="" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;edgeStyle=orthogonalEdgeStyle;entryX=0;entryY=0.227;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="hBBUqt62hopdGDWZqtHY-2" target="hBBUqt62hopdGDWZqtHY-9">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="460" y="260" as="sourcePoint" />
+            <mxPoint x="530" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hBBUqt62hopdGDWZqtHY-12" value="" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;edgeStyle=orthogonalEdgeStyle;entryX=0;entryY=0.227;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="360" y="370.25" as="sourcePoint" />
+            <mxPoint x="440" y="370.25" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hBBUqt62hopdGDWZqtHY-13" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=none;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="457.5" y="310" width="55" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="hBBUqt62hopdGDWZqtHY-14" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=none;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="487.5" y="310" width="55" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="hBBUqt62hopdGDWZqtHY-15" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=none;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="467.5" y="335" width="55" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="hBBUqt62hopdGDWZqtHY-16" value="Political Viewpoint is based on selected opinions and belief system and influenced by the environment." style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontColor=#0066CC;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="580" y="300" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="hBBUqt62hopdGDWZqtHY-17" value="Environment Influences" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="240" y="410" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="hBBUqt62hopdGDWZqtHY-18" value="" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;edgeStyle=orthogonalEdgeStyle;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="hBBUqt62hopdGDWZqtHY-17" target="hBBUqt62hopdGDWZqtHY-9">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="480" y="460" as="sourcePoint" />
+            <mxPoint x="560" y="460" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hBBUqt62hopdGDWZqtHY-19" value="VERITAS NEWS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=none;fillColor=#000000;fontColor=#FFFFFF;" vertex="1" parent="1">
+          <mxGeometry x="250" y="490" width="100" height="20" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

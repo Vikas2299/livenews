@@ -4,7 +4,7 @@ import os, json
 from typing import Dict, List, Any
 
 from crewai import Agent, Crew, Process, LLM
-from .cluster_organizer_real import get_view_text_by_cluster, build_view_summary_tasks
+from .cluster_organizer_real import get_view_text_by_cluster, build_view_summary_tasks, build_general_summary_tasks
 
 # Load env (.env next to this file is also loaded)
 ENV_PATH = Path(__file__).with_name(".env")
@@ -25,6 +25,7 @@ VIEW_TO_OUTPUT_KEY = {
     "LEFT": "LEFT",
     "RIGHT": "RIGHT",
     "CENTER": "CENTER",
+    "GENERAL": "GENERAL",
 }
 
 VALID_VIEWS = set(VIEW_TO_OUTPUT_KEY.keys())
@@ -41,7 +42,8 @@ class CompleteSummarizer:
         "Article title": "<cluster_title>",
         "LEFT":   "<summary or ''>",
         "RIGHT":  "<summary or ''>",
-        "CENTER": "<summary or ''>"
+        "CENTER": "<summary or ''>",
+        "GENERAL": "<summary or ''>"
       }
     """
 
@@ -171,18 +173,43 @@ class CompleteSummarizer:
                 if not title:
                     continue
                 if title not in collected:
-                    collected[title] = {"LEFT": "", "RIGHT": "", "CENTER": ""}
+                    collected[title] = {"LEFT": "More left sources needed",
+                                        "RIGHT": "More right sources needed",
+                                        "CENTER": "More center sources needed",
+                                        "GENERAL": "More general sources needed" }
                 collected[title][key] = summary
+        
+        general_results = self._run_one_view(
+        text_views_by_cluster,
+        "GENERAL",
+        # wrap to match _run_one_view's (tvbc, agent, view) signature
+        lambda tvbc, agent, _view: build_general_summary_tasks(tvbc, agent)
+        )
+
+
+        for r in general_results:
+            title = r.get("cluster_title")
+            summary = (r.get("summary") or "").strip()
+            if not title:
+                continue
+            if title not in collected:
+                collected[title] = {"LEFT": "More left sources needed",
+                                    "RIGHT": "More right sources needed",
+                                    "CENTER": "More center sources needed",
+                                    "GENERAL": "More general sources needed" }
+            collected[title]["GENERAL"] = summary
+
 
         # Upsert into stored rows
         existing_rows = self._load_existing_rows()
         idx = self._rows_to_index(existing_rows)
 
         for title, tri in collected.items():
-            row = idx.get(title) or {"Article title": title, "LEFT": "", "RIGHT": "", "CENTER": ""}
+            row = idx.get(title) or {"Article title": title, "LEFT": "", "RIGHT": "", "CENTER": "", "GENERAL": ""}
             row["LEFT"]   = tri.get("LEFT", row.get("LEFT", ""))
             row["RIGHT"]  = tri.get("RIGHT", row.get("RIGHT", ""))
             row["CENTER"] = tri.get("CENTER", row.get("CENTER", ""))
+            row["GENERAL"] = tri.get("GENERAL", row.get("GENERAL", ""))
             idx[title] = row
 
         final_rows = list(idx.values())
@@ -195,7 +222,7 @@ class CompleteSummarizer:
     def get_summaries(self, cluster_title: str | None = None) -> List[Dict[str, Any]]:
         """
         Read summaries from JSON. If cluster_title is provided, return only that row (if present).
-        Output rows have keys: "Article title", "LEFT", "RIGHT", "CENTER".
+        Output rows have keys: "Article title", "LEFT", "RIGHT", "CENTER", "GENERAL".
         """
         rows = self._load_existing_rows()
         if cluster_title:
