@@ -1,23 +1,17 @@
 import feedparser
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request, Query, BackgroundTasks, WebSocket
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
-from fastapi.websockets import WebSocketState
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from fastapi.staticfiles import StaticFiles
 from app.services.complete_scraper import CompleteScraper
-import asyncio
 from pathlib import Path
-from typing import Optional, Dict, List
+from typing import Dict, List
 import json
 from app.services import complete_summarizer
 import os
 
 # ✅ Create FastAPI app first, then register the router
 app = FastAPI(title="TruNews - Complete News Scraper")
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 FASTAPI_DIR = Path(__file__).resolve().parents[1]   # .../apps/fastapi
 DATA_DIR = Path(os.getenv("DATA_DIR", FASTAPI_DIR / "data"))
@@ -52,7 +46,7 @@ RSS_FEEDS = {
     'Fox_News':         'http://feeds.foxnews.com/foxnews/latest'
 }
 
-templates = Jinja2Templates(directory="templates")
+
 scraper = CompleteScraper()
 summarizer = complete_summarizer.CompleteSummarizer()
 
@@ -129,49 +123,6 @@ def fetch_all_feeds() -> Dict[str, List]:
     
     return {"by_source": articles_by_source, "all": all_articles, "total": total}
 
-@app.get("/", response_class=HTMLResponse)
-async def index(request: Request, page: int = Query(1, ge=1)):
-    """Main page displaying articles"""
-    data = fetch_all_feeds()
-    articles = data["all"]
-    
-    per_page = 20
-    total_articles = len(articles)
-    start = (page-1)*per_page
-    end = start + per_page
-    paginated_articles = articles[start:end]
-    
-    # Get statistics
-    stats = scraper.get_statistics()
-    
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "articles": paginated_articles, 
-            "page": page, 
-            "total_pages": (total_articles + per_page - 1) // per_page,
-            "total_articles": total_articles,
-            "scraped_count": stats["total_files"],
-            "stats": stats
-        }
-    )
-
-@app.get('/search')
-async def search(request: Request, q: str = Query("")):
-    """Search articles"""
-    data = fetch_all_feeds()
-    articles = data["all"]
-    results = [article for article in articles if q.lower() in article[1].title.lower()]
-    
-    return templates.TemplateResponse(
-        "search_results.html",
-        {
-            "request": request,
-            "articles": results, 
-            "query": q
-        }
-    )
 
 @app.post("/scrape/all")
 async def scrape_all_articles(background_tasks: BackgroundTasks):

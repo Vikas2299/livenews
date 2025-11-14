@@ -3,7 +3,7 @@ import { View, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import TopNavigation from './src/components/TopNavigation';
 import VideosScreen from './src/screens/VideosScreen';
-import NewspaperScreenOld from './src/screens/NewspaperScreenOld';
+import NewspaperScreenOld from './src/screens/NewspaperScreen';
 
 type Tab = 'videos' | 'newspaper';
 const NAV_HEIGHT = 29; // 3/5 of original 48
