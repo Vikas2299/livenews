@@ -15,7 +15,7 @@ print("Loaded GOOGLE_API_KEY?", bool(os.getenv("GOOGLE_API_KEY")))
 _api_key = os.getenv("GOOGLE_API_KEY")
 
 _llm = LLM(
-    model="gemini/gemini-2.5-flash",
+    model="gemini/gemini-3-flash-preview", 
     api_key=_api_key,
     temperature=0.5
 )
