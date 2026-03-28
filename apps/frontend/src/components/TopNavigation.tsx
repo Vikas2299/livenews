@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 
 type Tab = 'videos' | 'newspaper';
 interface TopNavigationProps {
@@ -11,7 +11,11 @@ export default function TopNavigation({ activeTab, onTabChange }: TopNavigationP
   return (
     <View style={styles.container}>
       <View style={styles.navBar}>
-        <TouchableOpacity style={styles.tab} onPress={() => onTabChange('videos')} activeOpacity={0.7}>
+        <Pressable
+          style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]}
+          onPress={() => onTabChange('videos')}
+          android_ripple={null}
+        >
           <View style={styles.tabContent}>
             <Text style={[styles.tabIcon, activeTab === 'videos' ? styles.activeIcon : styles.inactiveIcon]}>📹</Text>
             <Text style={[styles.tabText, { marginLeft: 6 }, activeTab === 'videos' ? styles.activeTabText : styles.inactiveTabText]}>
@@ -19,9 +23,13 @@ export default function TopNavigation({ activeTab, onTabChange }: TopNavigationP
             </Text>
           </View>
           {activeTab === 'videos' && <View style={styles.activeIndicator} />}
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity style={styles.tab} onPress={() => onTabChange('newspaper')} activeOpacity={0.7}>
+        <Pressable
+          style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]}
+          onPress={() => onTabChange('newspaper')}
+          android_ripple={null}
+        >
           <View style={styles.tabContent}>
             <Text style={[styles.tabIcon, activeTab === 'newspaper' ? styles.activeIcon : styles.inactiveIcon]}>📰</Text>
             <Text style={[styles.tabText, { marginLeft: 6 }, activeTab === 'newspaper' ? styles.activeTabText : styles.inactiveTabText]}>
@@ -29,7 +37,7 @@ export default function TopNavigation({ activeTab, onTabChange }: TopNavigationP
             </Text>
           </View>
           {activeTab === 'newspaper' && <View style={styles.activeIndicator} />}
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </View>
   );
@@ -48,6 +56,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     backgroundColor: 'transparent', // no second tint layer
+    overflow: 'hidden', // clip tab underlines to bar height
   },
   tab: {
     flex: 1,
@@ -56,7 +65,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     paddingTop: 2,
     position: 'relative',
+    backgroundColor: 'transparent',
   },
+  tabPressed: { opacity: 0.72 },
   tabContent: { flexDirection: 'row', alignItems: 'center' },
 
   tabIcon: {

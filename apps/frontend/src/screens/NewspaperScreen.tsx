@@ -1,38 +1,83 @@
 // app.tsx
-import React, { useEffect, useState, memo } from 'react';
+import React, { useEffect, useState, memo, useMemo } from 'react';
 import {
   ActivityIndicator, Dimensions, FlatList, Image, StyleSheet, Text, TouchableOpacity,
   View, ScrollView, Platform, UIManager, Modal, Pressable, useWindowDimensions,
 } from 'react-native';
 import { getSummaries, type SummaryRow } from '../services/api/summaries';
 import { getClusterCovers } from '../services/api/thumbnail';
-import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const { height } = Dimensions.get('window');
-const SMALL_SCREEN = height < 750;
+const { height: initialWindowHeight } = Dimensions.get('window');
+const SMALL_SCREEN = initialWindowHeight < 750;
 const IMAGE_RATIO = SMALL_SCREEN ? 0.36 : 0.42;
+
+/** Space under article text before the fixed Sources / Comments bar */
+const SUMMARY_SCROLL_BOTTOM_PAD = 34;
+/** Lift action bar slightly from the physical bottom of the card */
+const ACTIONS_BOTTOM_OFFSET = 10;
+
+type TabId = 'G' | 'R' | 'L' | 'C';
+
+/** Same outlet pools as `cluster_organizer_real.VIEW_TO_SOURCES` (display names). */
+const POOL_LEFT = ['The Guardian', 'CNN', 'Washington Post'] as const;
+const POOL_CENTER = ['BBC', 'NPR', 'PBS'] as const;
+const POOL_RIGHT = ['Fox News', 'Breitbart', 'Dow Jones'] as const;
+const POOL_GENERAL = [...POOL_LEFT, ...POOL_CENTER, ...POOL_RIGHT] as const;
+
+const HARDCODED_SOURCES_BY_TAB: Record<TabId, readonly string[]> = {
+  G: POOL_GENERAL,
+  L: POOL_LEFT,
+  R: POOL_RIGHT,
+  C: POOL_CENTER,
+};
+
+/** Backend placeholder when a view has no articles to summarize */
+const MORE_SOURCES_NEEDED = /^more\s+(left|right|center|general)\s+sources\s+needed\.?$/i;
+
+function rawSummaryForPerspective(row: SummaryRow, tab: TabId): string | undefined {
+  switch (tab) {
+    case 'G':
+      return row.general;
+    case 'L':
+      return row.left;
+    case 'R':
+      return row.right;
+    case 'C':
+      return row.center;
+  }
+}
+
+/** True when this perspective has a real summary (not empty, em dash, or “more … sources needed”). */
+function hasRealSummaryForPerspective(row: SummaryRow, tab: TabId): boolean {
+  const t = rawSummaryForPerspective(row, tab)?.trim() ?? '';
+  if (!t || t === '—') return false;
+  if (MORE_SOURCES_NEEDED.test(t)) return false;
+  return true;
+}
 
 // ----- Small presentational card for a single story -----
 const StoryCard = memo(function StoryCard({
   row,
-  imageUri, // ✅ new prop
-}: { row: SummaryRow; imageUri: string }) {
-  const [activeTab, setActiveTab] = useState<'G' | 'R' | 'L' | 'C'>('G');
+  imageUri,
+  pageHeight,
+}: { row: SummaryRow; imageUri: string; pageHeight: number }) {
+  const [activeTab, setActiveTab] = useState<TabId>('G');
 
   // Which overlay is open?
-  type Sheet = 'comments' | 'sources' | null;
+  type Sheet = 'comments' | 'sources' | 'tabLegend' | null;
   const [sheet, setSheet] = useState<Sheet>(null);
   const openComments = () => setSheet(s => (s === 'comments' ? null : 'comments'));
   const openSources  = () => setSheet(s => (s === 'sources'  ? null : 'sources'));
+  const toggleTabLegend = () => setSheet(s => (s === 'tabLegend' ? null : 'tabLegend'));
   const closeSheet   = () => setSheet(null);
 
-  // Responsive measurements
-  const { height: winH } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
+  // Match list row height (measured FlatList) so layout does not peek next card on Android
+  const winH = pageHeight;
 
   // Measure heights of dynamic blocks
   const [tabsH, setTabsH]       = useState(0);
@@ -63,7 +108,7 @@ const StoryCard = memo(function StoryCard({
     { id: 'C' as const, label: 'Center',  color: '#ffffff', textColor: '#000' },
   ];
 
-  const textByTab: Record<typeof activeTab, string> = {
+  const textByTab: Record<TabId, string> = {
     G: row.general?.trim() || row.left?.trim() || row.right?.trim() || '—',
     R: row.right?.trim() || '—',
     L: row.left?.trim() || '—',
@@ -76,11 +121,23 @@ const StoryCard = memo(function StoryCard({
     { user: 'PoliticalWatcher', text: 'Concerned about the national debt implications.',       time: '45m ago' },
     { user: 'NewsJunkie',       text: 'Great to see investment in infrastructure!',            time: '30m ago' },
   ];
-  const sources = ['BBC', 'CNN', 'NPR'];
+  const activePerspectiveLabel = tabs.find((t) => t.id === activeTab)?.label ?? 'General';
+
+  const perspectiveSources = useMemo(() => {
+    if (!hasRealSummaryForPerspective(row, activeTab)) return [];
+    return [...HARDCODED_SOURCES_BY_TAB[activeTab]];
+  }, [row, activeTab]);
+
+  const sourcesSheetNote =
+    perspectiveSources.length === 0
+      ? `No summary is available for this perspective yet, so no sources are listed.`
+      : activeTab === 'G'
+        ? 'General summaries draw on the full set of outlets below (left, center, and right pools).'
+        : `Summaries for this perspective are produced from articles in these ${activePerspectiveLabel.toLowerCase()}-leaning outlets.`;
 
   return (
-    <SafeAreaView style={styles.page} edges={[]}>
-      <View style={styles.page}>
+    <SafeAreaView style={[styles.page, { height: pageHeight }]} edges={[]}>
+      <View style={[styles.page, { height: pageHeight }]}>
         {/* Image */}
         <View style={[styles.imageContainer, { height: imageH }]}>
           <Image source={{ uri: imageUri }} style={styles.newsImage} resizeMode="cover" />
@@ -98,30 +155,45 @@ const StoryCard = memo(function StoryCard({
             </View>
           </View>
 
-          {/* Tabs - moved below title */}
-          <View style={styles.tabsContainer} onLayout={(e) => setTabsH(e.nativeEvent.layout.height)}>
-            {tabs.map((tab) => (
-              <TouchableOpacity
-                key={tab.id}
-                style={[
-                  styles.tab,
-                  { backgroundColor: tab.color },
-                  activeTab === tab.id && styles.activeTab,
-                  tab.id === 'C' && { borderWidth: 1, borderColor: '#ddd' },
-                ]}
-                onPress={() => setActiveTab(tab.id)}
-              >
-                <Text
+          {/* Tabs centered on screen; i sits in right flex column so it does not shift G–C */}
+          <View style={styles.tabsRow} onLayout={(e) => setTabsH(e.nativeEvent.layout.height)}>
+            <View style={styles.tabsSideBalance} />
+            <View style={styles.tabsInner}>
+              {tabs.map((tab) => (
+                <TouchableOpacity
+                  key={tab.id}
                   style={[
-                    styles.tabText,
-                    { color: tab.textColor },
-                    activeTab === tab.id && styles.activeTabText,
+                    styles.tab,
+                    { backgroundColor: tab.color },
+                    activeTab === tab.id && styles.activeTab,
+                    tab.id === 'C' && { borderWidth: 1, borderColor: '#ddd' },
                   ]}
+                  onPress={() => setActiveTab(tab.id)}
                 >
-                  {tab.id}
-                </Text>
+                  <Text
+                    style={[
+                      styles.tabText,
+                      { color: tab.textColor },
+                      activeTab === tab.id && styles.activeTabText,
+                    ]}
+                  >
+                    {tab.id}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.tabsSideBalance}>
+              <TouchableOpacity
+                onPress={toggleTabLegend}
+                style={styles.tabInfoHit}
+                accessibilityLabel="What do G, R, L, and C mean?"
+                hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+              >
+                <View style={styles.tabInfoCircle}>
+                  <Text style={styles.tabInfoLetter}>i</Text>
+                </View>
               </TouchableOpacity>
-            ))}
+            </View>
           </View>
 
           {/* Summary: only scroll when needed */}
@@ -130,7 +202,7 @@ const StoryCard = memo(function StoryCard({
               styles.summaryScroll,
               shouldScroll && { maxHeight: maxSummaryH },
             ]}
-            contentContainerStyle={{ paddingBottom: 50 }}
+            contentContainerStyle={{ paddingBottom: SUMMARY_SCROLL_BOTTOM_PAD }}
             showsVerticalScrollIndicator={shouldScroll}
             scrollEnabled={shouldScroll}
             onContentSizeChange={(_, h) => setContentH(h)}
@@ -140,11 +212,13 @@ const StoryCard = memo(function StoryCard({
 
           {/* Action buttons (measured) */}
           <View
-            style={styles.actionsContainer}
+            style={[styles.actionsContainer, { bottom: ACTIONS_BOTTOM_OFFSET }]}
             onLayout={(e) => setActionsH(e.nativeEvent.layout.height)}
           >
             <TouchableOpacity style={styles.actionButton} onPress={openSources}>
-              <Text style={styles.actionButtonText}>📰 Sources ({sources.length})</Text>
+              <Text style={styles.actionButtonText}>
+                📰 Sources ({perspectiveSources.length})
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton} onPress={openComments}>
               <Text style={styles.actionButtonText}>💬 Comments ({comments.length})</Text>
@@ -160,7 +234,11 @@ const StoryCard = memo(function StoryCard({
               <View style={styles.handleBar} />
               <View style={styles.sheetHeader}>
                 <Text style={styles.sheetTitle}>
-                  {sheet === 'comments' ? `Comments (${comments.length})` : 'News Sources'}
+                  {sheet === 'comments'
+                    ? `Comments (${comments.length})`
+                    : sheet === 'sources'
+                      ? `Sources · ${activePerspectiveLabel}`
+                      : 'Viewpoint labels'}
                 </Text>
                 <TouchableOpacity onPress={closeSheet}>
                   <Text style={styles.sheetClose}>Close</Text>
@@ -179,16 +257,27 @@ const StoryCard = memo(function StoryCard({
                     </View>
                   ))}
                 </ScrollView>
-              ) : (
+              ) : sheet === 'sources' ? (
                 <ScrollView style={{ maxHeight: winH * 0.55 }}>
-                  {sources.map((s) => (
-                    <View key={s} style={styles.sourceItem}>
+                  {perspectiveSources.map((s, i) => (
+                    <View key={`${s}-${i}`} style={styles.sourceItem}>
                       <View style={styles.sourceBullet} />
                       <Text style={styles.sourceText}>{s}</Text>
                     </View>
                   ))}
-                  <Text style={styles.sourcesNote}>
-                    This story has been synthesized from multiple sources to provide balanced coverage.
+                  <Text style={styles.sourcesNote}>{sourcesSheetNote}</Text>
+                </ScrollView>
+              ) : (
+                <ScrollView style={{ maxHeight: winH * 0.55 }} contentContainerStyle={styles.tabLegendBody}>
+                  {tabs.map((tab) => (
+                    <View key={tab.id} style={styles.tabLegendRow}>
+                      <Text style={styles.tabLegendKey}>{tab.id}</Text>
+                      <Text style={styles.tabLegendDash}>—</Text>
+                      <Text style={styles.tabLegendLabel}>{tab.label}</Text>
+                    </View>
+                  ))}
+                  <Text style={styles.tabLegendFootnote}>
+                    Each letter switches the summary to that editorial perspective for this story.
                   </Text>
                 </ScrollView>
               )}
@@ -202,10 +291,12 @@ const StoryCard = memo(function StoryCard({
 
 // ----- App: fetch summaries + covers, render list -----
 export default function NewspaperScreen() {
+  const { height: winHeight } = useWindowDimensions();
   const [rows, setRows] = useState<SummaryRow[]>([]);
   const [coverMap, setCoverMap] = useState<Map<number, string>>(new Map()); // ✅
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [listHeight, setListHeight] = useState(winHeight);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -252,24 +343,38 @@ export default function NewspaperScreen() {
     <FlatList
       data={rows}
       keyExtractor={(r) => r.title}
+      extraData={listHeight}
+      onLayout={(e) => {
+        const h = e.nativeEvent.layout.height;
+        if (h <= 0) return;
+        setListHeight((prev) => (Math.abs(h - prev) > 0.5 ? h : prev));
+      }}
       renderItem={({ item, index }) => {
-        // index is 0-based; cluster_id starts at 1
         const img = coverMap.get(index + 1) || GENERIC(item.title);
-        return <StoryCard row={item} imageUri={img} />;
+        return (
+          <View style={{ height: listHeight, overflow: 'hidden' }}>
+            <StoryCard row={item} imageUri={img} pageHeight={listHeight} />
+          </View>
+        );
       }}
       pagingEnabled
       decelerationRate="fast"
       showsVerticalScrollIndicator={false}
       snapToAlignment="start"
-      // make each item exactly one "screen" tall so paging snaps per story
-      getItemLayout={(_, i) => ({ length: height, offset: height * i, index: i })}
+      snapToInterval={listHeight}
+      disableIntervalMomentum
+      getItemLayout={(_, i) => ({
+        length: listHeight,
+        offset: listHeight * i,
+        index: i,
+      })}
     />
   );
 }
 
 // ----- Styles (mostly from your mock) -----
 const styles = StyleSheet.create({
-  summaryScroll: { paddingHorizontal: 0, flex: 1 },
+  summaryScroll: { paddingHorizontal: 0, flex: 1, alignSelf: 'stretch', width: '100%' },
   overlay: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.25)' },
   sheet: {
@@ -279,7 +384,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    maxHeight: height * 0.6,
+    maxHeight: initialWindowHeight * 0.6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.2,
@@ -291,20 +396,72 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: 16, fontWeight: '700', color: '#2c3e50' },
   sheetClose: { color: '#2563eb', fontWeight: '600' },
 
-  page: { height, backgroundColor: '#fff' },
+  page: { width: '100%', backgroundColor: '#fff' },
 
-  imageContainer: { width: '100%', height: height * IMAGE_RATIO, backgroundColor: '#f0f0f0' },
+  imageContainer: { width: '100%', height: initialWindowHeight * IMAGE_RATIO, backgroundColor: '#f0f0f0' },
   newsImage: { width: '100%', height: '100%' },
 
-  tabsContainer: {
+  tabsRow: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    alignItems: 'center',
+    width: '100%',
     paddingHorizontal: 8,
     paddingVertical: 1,
     paddingBottom: 1,
+    backgroundColor: '#fff',
+  },
+  /** Equal flex keeps G–L–R–C centered; icon lives in the right column */
+  tabsSideBalance: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  tabsInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  /** Tab buttons are 42px tall; circle is 18px (< 21px = half of 42) */
+  tabInfoHit: {
+    marginLeft: 6,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  tabInfoCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: '#7f8c8d',
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabInfoLetter: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontStyle: 'italic',
+    color: '#5d6d7e',
+    marginTop: -1,
+  },
+  tabLegendBody: { paddingBottom: 8 },
+  tabLegendRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 12,
+    flexWrap: 'wrap',
+  },
+  tabLegendKey: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#2c3e50',
+    width: 22,
+  },
+  tabLegendDash: { fontSize: 15, color: '#95a5a6', marginHorizontal: 6 },
+  tabLegendLabel: { flex: 1, fontSize: 15, color: '#34495e', fontWeight: '500' },
+  tabLegendFootnote: { fontSize: 13, color: '#7f8c8d', lineHeight: 19, marginTop: 4 },
   tab: {
     width: 42,
     height: 42,
@@ -341,7 +498,7 @@ const styles = StyleSheet.create({
   shortHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 1, marginTop: 0 },
   shortLine: { flex: 1, height: 1, backgroundColor: '#e0e0e0' },
   shortLabel: { fontSize: 12, fontWeight: 'bold', color: '#95a5a6', marginHorizontal: 10, textTransform: 'lowercase' },
-  newsContent: { fontSize: 14, lineHeight: 20, color: '#34495e', textAlign: 'center' },
+  newsContent: { fontSize: 14, lineHeight: 20, color: '#34495e', textAlign: 'left' },
   swipeHint: { fontSize: 12, color: '#95a5a6', fontStyle: 'italic', marginTop: 8, marginBottom: 12 },
 
   actionsContainer: {
@@ -350,13 +507,12 @@ const styles = StyleSheet.create({
     marginVertical: 0,
     marginTop: 0,
     marginBottom: 0,
-    paddingVertical: 6,
-    paddingBottom: 4,
+    paddingVertical: 5,
+    paddingBottom: 3,
     borderTopWidth: 0,
     borderBottomWidth: 0,
     borderColor: '#ecf0f1',
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
     backgroundColor: '#fff',

@@ -54,11 +54,12 @@ const styles = StyleSheet.create({
     top: 0, left: 0, right: 0,
     backgroundColor: 'rgba(0,0,0,0.30)', // the ONLY tint layer
     zIndex: 10,
-    elevation: 10,
+    // Avoid Android elevation shadow — reads as a grey “box” inside the bar
+    elevation: 0,
   },
   navInner: {
     height: NAV_HEIGHT,
     justifyContent: 'center',
-    overflow: 'hidden', // keeps underline inside the bar
+    backgroundColor: 'transparent',
   },
 });
